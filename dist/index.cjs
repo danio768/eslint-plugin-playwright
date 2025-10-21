@@ -3667,7 +3667,10 @@ var require_test_tags_default = createRule({
           if (hasExemptionTag) {
             continue;
           }
-          const found = allTestTags.some((tag) => matchesTagPool(tag, pool));
+          const found = allTestTags.some((tag) => matchesTagPool(tag, pool)) || allTemplateLiterals.some((templateLiteral) => {
+            const reconstructed = reconstructTemplateLiteral(templateLiteral);
+            return reconstructed && matchesTagPool(reconstructed, pool);
+          });
           if (!found) {
             context.report({
               data: { tagType: pool.name },
