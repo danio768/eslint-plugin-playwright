@@ -6,6 +6,7 @@ import {
   extractTagsFromText,
   findTagPropertyNode,
   matchesPattern,
+  reconstructTemplateLiteral,
 } from '../utils/tags.js'
 
 interface TagPool {
@@ -163,8 +164,14 @@ export default createRule({
             continue // Skip this requirement since exemption tag is present
           }
 
-          // Check if any tag matches this pool
-          const found = allTestTags.some((tag) => matchesTagPool(tag, pool))
+          // Check if any tag matches this pool (including template literals)
+          const found =
+            allTestTags.some((tag) => matchesTagPool(tag, pool)) ||
+            allTemplateLiterals.some((templateLiteral) => {
+              // Reconstruct template literal and check against pattern
+              const reconstructed = reconstructTemplateLiteral(templateLiteral)
+              return reconstructed && matchesTagPool(reconstructed, pool)
+            })
 
           if (!found) {
             context.report({

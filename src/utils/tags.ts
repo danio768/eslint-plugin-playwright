@@ -6,7 +6,7 @@ import { getStringValue } from './ast.js'
  * allows template literals to be validated against regex patterns that support
  * both static values and template literal expressions.
  */
-function reconstructTemplateLiteral(
+export function reconstructTemplateLiteral(
   templateLiteral: TSESTree.TemplateLiteral,
 ): string | null {
   // If it's a simple template with no expressions, return the raw value
