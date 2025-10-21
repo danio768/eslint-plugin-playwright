@@ -90,10 +90,10 @@ runTSRuleTester('no-duplicate-tags', rule, {
     {
       code: `
         test('complex test', { 
-          tag: ['@123', '@team-frontend', '@user-service', '@sts'] 
+          tag: ['@123', '@team-frontend', '@user-service'] 
         }, async ({ page }) => {})
         test('another test', { 
-          tag: ['@456', '@team-backend', '@order-service', '@gridOperator'] 
+          tag: ['@456', '@team-backend', '@order-service'] 
         }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
