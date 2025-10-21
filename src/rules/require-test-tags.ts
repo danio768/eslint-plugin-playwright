@@ -1,7 +1,11 @@
 import { TSESTree } from '@typescript-eslint/utils'
 import { createRule } from '../utils/createRule.js'
 import { parseFnCall } from '../utils/parseFnCall.js'
-import { extractTagsFromProperty, findTagPropertyNode, matchesPattern } from '../utils/tags.js'
+import {
+  extractTagsFromProperty,
+  findTagPropertyNode,
+  matchesPattern,
+} from '../utils/tags.js'
 
 interface TagPool {
   exclude?: (string | { flags?: string; source: string })[]
@@ -19,44 +23,45 @@ export default createRule({
     const options = (context.options[0] as RuleOptions) || {}
     const tagPools = options.tagPools || []
     const sharedPaths = options.sharedPaths || []
-    
+
     // Configuration validation
     if (tagPools.length === 0) {
       return {} // No validation if no tag pools configured
     }
-    
+
     // Validate tag pool configurations
     for (const pool of tagPools) {
       if (!pool.name || typeof pool.name !== 'string') {
         throw new Error(
-          'Each tag pool must have a name property of type string'
+          'Each tag pool must have a name property of type string',
         )
       }
       if (!pool.pattern) {
-        throw new Error(
-          `Tag pool "${pool.name}" must have a pattern property`
-        )
+        throw new Error(`Tag pool "${pool.name}" must have a pattern property`)
       }
     }
-    
+
     const filename = context.filename
-    
+
     // Skip non-spec files
     if (!filename.endsWith('.spec.ts')) {
       return {}
     }
-    
+
     // Skip shared directories
-    const isSharedPath = sharedPaths.some((shared: string) => 
-      new RegExp(`(^|[\\\\/])${shared}([\\\\/]|$)`, 'i').test(filename)
+    const isSharedPath = sharedPaths.some((shared: string) =>
+      new RegExp(`(^|[\\\\/])${shared}([\\\\/]|$)`, 'i').test(filename),
     )
     if (isSharedPath) {
       return {}
     }
 
     // Helper to check if tag should be excluded
-    const isExcluded = (tag: string, excludes: (string | { flags?: string; source: string })[] = []): boolean => {
-      return excludes.some(exclude => {
+    const isExcluded = (
+      tag: string,
+      excludes: (string | { flags?: string; source: string })[] = [],
+    ): boolean => {
+      return excludes.some((exclude) => {
         if (typeof exclude === 'string') {
           // Literal string match
           return tag === exclude || tag.toLowerCase() === exclude.toLowerCase()
@@ -71,11 +76,11 @@ export default createRule({
       if (!matchesPattern(tag, pool.pattern)) {
         return false
       }
-      
+
       if (isExcluded(tag, pool.exclude)) {
         return false
       }
-      
+
       return true
     }
 
@@ -101,8 +106,10 @@ export default createRule({
         const optionsArg = node.arguments[1]
         if (!optionsArg || optionsArg.type !== 'ObjectExpression') return
 
-        const tags = extractTagsFromProperty(optionsArg as TSESTree.ObjectExpression)
-        
+        const tags = extractTagsFromProperty(
+          optionsArg as TSESTree.ObjectExpression,
+        )
+
         // Store all tags (even if empty)
         allTestTags.push(...tags)
 
@@ -119,30 +126,37 @@ export default createRule({
         for (const pool of tagPools) {
           // Special handling for literal string exemption tags (like @noid)
           // Only literal string exclusions make the pool optional, not regex exclusions
-          const hasExemptionTag = pool.exclude && pool.exclude.some(exclusion => {
-            if (typeof exclusion === 'string') {
-              return allTestTags.some(tag => tag === exclusion || tag.toLowerCase() === exclusion.toLowerCase())
-            }
-            return false // Regex exclusions don't make pools optional
-          })
-          
+          const hasExemptionTag =
+            pool.exclude &&
+            pool.exclude.some((exclusion) => {
+              if (typeof exclusion === 'string') {
+                return allTestTags.some(
+                  (tag) =>
+                    tag === exclusion ||
+                    tag.toLowerCase() === exclusion.toLowerCase(),
+                )
+              }
+              return false // Regex exclusions don't make pools optional
+            })
+
           if (hasExemptionTag) {
             continue // Skip this requirement since exemption tag is present
           }
-          
+
           // Check if any tag matches this pool
-          const found = allTestTags.some(tag => matchesTagPool(tag, pool))
-          
+          const found = allTestTags.some((tag) => matchesTagPool(tag, pool))
+
           if (!found) {
             context.report({
               data: { tagType: pool.name },
               messageId: 'missingTag',
-              node: firstTagNode || firstTestNode || {
-                loc: {
-                  end: { column: 1, line: 1 },
-                  start: { column: 0, line: 1 },
-                }
-              },
+              node: firstTagNode ||
+                firstTestNode || {
+                  loc: {
+                    end: { column: 1, line: 1 },
+                    start: { column: 0, line: 1 },
+                  },
+                },
               suggest: [
                 {
                   data: { tagType: pool.name },
@@ -179,7 +193,7 @@ export default createRule({
           sharedPaths: {
             description: 'List of shared directory paths to ignore',
             items: { type: 'string' },
-            type: 'array'
+            type: 'array',
           },
           tagPools: {
             description: 'Array of tag pools to validate',
@@ -187,7 +201,8 @@ export default createRule({
               additionalProperties: false,
               properties: {
                 exclude: {
-                  description: 'Patterns or literal strings to exclude from matching',
+                  description:
+                    'Patterns or literal strings to exclude from matching',
                   items: {
                     oneOf: [
                       { type: 'string' },
@@ -195,40 +210,41 @@ export default createRule({
                         additionalProperties: false,
                         properties: {
                           flags: { type: 'string' },
-                          source: { type: 'string' }
+                          source: { type: 'string' },
                         },
                         required: ['source'],
-                        type: 'object'
-                      }
-                    ]
+                        type: 'object',
+                      },
+                    ],
                   },
-                  type: 'array'
+                  type: 'array',
                 },
-                name: { 
+                name: {
                   description: 'Name of the tag pool (used in error messages)',
-                  type: 'string'
+                  type: 'string',
                 },
                 pattern: {
-                  description: 'Regex pattern to match tags (string or {source, flags} object)',
+                  description:
+                    'Regex pattern to match tags (string or {source, flags} object)',
                   oneOf: [
                     { type: 'string' },
                     {
                       additionalProperties: false,
                       properties: {
                         flags: { type: 'string' },
-                        source: { type: 'string' }
+                        source: { type: 'string' },
                       },
                       required: ['source'],
-                      type: 'object'
-                    }
-                  ]
-                }
+                      type: 'object',
+                    },
+                  ],
+                },
               },
               required: ['name', 'pattern'],
-              type: 'object'
+              type: 'object',
             },
-            type: 'array'
-          }
+            type: 'array',
+          },
         },
         type: 'object',
       },
