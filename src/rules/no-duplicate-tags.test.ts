@@ -1,6 +1,11 @@
 import { runTSRuleTester } from '../utils/rule-tester.js'
 import rule from './no-duplicate-tags.js'
 
+// Test configuration with explicit project root to limit scanning scope
+const testOptions = [{
+  projectRoot: './src/rules'  // Limit to current directory for testing
+}]
+
 runTSRuleTester('no-duplicate-tags', rule, {
   invalid: [
     // Duplicate tags within the same file
@@ -13,6 +18,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         { data: { location: ' in this file', tag: '@123' }, messageId: 'duplicateTag' },
       ],
       filename: 'test.spec.ts',
+      options: testOptions,
     },
     // Duplicate tags in array format
     {
@@ -24,6 +30,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         { data: { location: ' in this file', tag: '@456' }, messageId: 'duplicateTag' },
       ],
       filename: 'test.spec.ts',
+      options: testOptions,
     },
     // Multiple duplicates
     {
@@ -38,6 +45,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         { data: { location: ' in this file', tag: '@200' }, messageId: 'duplicateTag' },
       ],
       filename: 'test.spec.ts',
+      options: testOptions,
     },
   ],
   valid: [
@@ -45,6 +53,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
     {
       code: "test('my test', async ({ page }) => {})",
       filename: 'test.spec.ts',
+      options: testOptions,
     },
     // Unique numeric tags
     {
@@ -53,6 +62,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('test two', { tag: '@456' }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
+      options: testOptions,
     },
     // Mixed tags (only @number tags are checked for duplicates)
     {
@@ -61,6 +71,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('test two', { tag: ['@456', '@team-frontend'] }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
+      options: testOptions,
     },
     // Non-spec files should be ignored
     {
@@ -69,6 +80,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('test two', { tag: '@123' }, async ({ page }) => {})
       `,
       filename: 'test.ts',
+      options: testOptions,
     },
     // Non-numeric tags (should not trigger duplicate detection)
     {
@@ -77,6 +89,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('test two', { tag: '@team-frontend' }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
+      options: testOptions,
     },
     // Dynamic tags
     {
@@ -85,6 +98,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('test two', { tag: '@\${caseData.testCaseId}' }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
+      options: testOptions,
     },
     // Array with unique numeric tags
     {
@@ -97,6 +111,7 @@ runTSRuleTester('no-duplicate-tags', rule, {
         }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
+      options: testOptions,
     },
   ],
 })

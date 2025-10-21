@@ -62,7 +62,48 @@ test('test two', { tag: '@${caseData.id}' }, async ({ page }) => {})
 
 ## Options
 
-This rule has no configuration options.
+```ts
+interface RuleOptions {
+  projectRoot?: string
+}
+```
+
+### Configuration
+
+```js
+// eslint.config.js
+export default [
+  {
+    files: ['**/*.spec.ts'],
+    rules: {
+      'playwright/no-duplicate-tags': ['error', {
+        projectRoot: './tests'  // Limit scanning to tests directory
+      }]
+    }
+  }
+]
+```
+
+### Option Details
+
+- **`projectRoot`** (string, optional): Root directory to search for `.spec.ts` files
+  - Default: `process.cwd()` (current working directory)
+  - Useful for limiting scan scope in large repositories
+  - Improves performance by avoiding unnecessary directory traversal
+  - Example values: `'./tests'`, `'./e2e'`, `'./src/test'`
+
+### Performance Optimization
+
+For large projects, specifying a `projectRoot` can significantly improve performance:
+
+```js
+// Only scan the e2e test directory instead of entire repository
+{
+  'playwright/no-duplicate-tags': ['error', { 
+    projectRoot: './tests/e2e' 
+  }]
+}
+```
 
 ## When To Use
 
