@@ -10,11 +10,29 @@ with their own patterns and exclusions.
 
 ### Examples
 
-```ts
+````ts
 // ❌ Incorrect - missing required tag types
 test('my test', { tag: ['@team-frontend'] }, async ({ page }) => {})
 
-// ✅ Correct - has all required tag types
+# Require Test Tags
+
+Enforces that test files have required tags based on configurable tag pools. Tags can be distributed across `test.describe` and `test` calls within the same file.
+
+## Rule Details
+
+This rule validates that each test file includes tags from all required tag pools. Tag pools are completely configurable, allowing you to define custom tag categories with their own patterns and exclusions.
+
+**Important**: The rule checks for tag coverage across the entire file, not per individual test. Tags can be inherited from `test.describe` blocks or distributed across multiple `test` calls.
+
+### Examples
+
+```ts
+// ❌ Incorrect - missing required tag types in the file
+test('my test', { tag: ['@team-frontend'] }, async ({ page }) => {})
+````
+
+```ts
+// ✅ Correct - has all required tag types in a single test
 test(
   'my test',
   {
@@ -22,7 +40,30 @@ test(
   },
   async ({ page }) => {},
 )
+```
 
+```ts
+// ✅ Correct - tags distributed across test.describe and test calls
+test.describe(
+  'user management',
+  {
+    tag: ['@123', '@team-frontend'],
+  },
+  () => {
+    test(
+      'create user',
+      {
+        tag: ['@user-service', '@api'],
+      },
+      async ({ page }) => {},
+    )
+
+    test('delete user', async ({ page }) => {})
+  },
+)
+```
+
+```ts
 // ✅ Correct - exemption tag makes requirement optional
 test(
   'my test',
@@ -32,6 +73,15 @@ test(
   async ({ page }) => {},
 )
 ```
+
+test( 'my test', { tag: ['@123', '@team-frontend', '@user-service', '@api'], },
+async ({ page }) => {}, )
+
+// ✅ Correct - exemption tag makes requirement optional test( 'my test', { tag:
+['@noid', '@team-frontend', '@user-service', '@api'], }, async ({ page }) => {},
+)
+
+````
 
 ## Options
 
@@ -46,7 +96,7 @@ interface TagPool {
   pattern: string | { source: string; flags?: string }
   exclude?: (string | { source: string; flags?: string })[]
 }
-```
+````
 
 ### Configuration Examples
 

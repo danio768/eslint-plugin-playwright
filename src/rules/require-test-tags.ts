@@ -92,13 +92,17 @@ export default createRule({
     return {
       CallExpression(node) {
         const call = parseFnCall(context, node)
-        if (!call || call.type !== 'test') return
 
-        hasAnyTest = true
+        // Handle both test() and test.describe() calls
+        if (!call || (call.type !== 'test' && call.type !== 'describe')) return
 
-        // Store first test node for error reporting if we don't have one yet
-        if (!firstTestNode) {
-          firstTestNode = node
+        if (call.type === 'test') {
+          hasAnyTest = true
+
+          // Store first test node for error reporting if we don't have one yet
+          if (!firstTestNode) {
+            firstTestNode = node
+          }
         }
 
         // Check if there's an options object as the second argument
@@ -110,7 +114,7 @@ export default createRule({
           optionsArg as TSESTree.ObjectExpression,
         )
 
-        // Store all tags (even if empty)
+        // Store all tags from both test() and test.describe()
         allTestTags.push(...tags)
 
         // Store the first tag node for better error reporting
@@ -178,13 +182,14 @@ export default createRule({
 
   meta: {
     docs: {
-      description: 'Enforce required tags in Playwright test files',
+      description:
+        'Enforce required tags in Playwright test files (file-level validation)',
       recommended: true,
     },
     hasSuggestions: true,
     messages: {
-      missingTag: 'Missing required tag type: {{tagType}}',
-      suggestAddTag: 'Add {{tagType}} tag',
+      missingTag: 'Missing required tag type in file: {{tagType}}',
+      suggestAddTag: 'Add {{tagType}} tag to test.describe or test',
     },
     schema: [
       {

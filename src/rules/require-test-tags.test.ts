@@ -36,7 +36,7 @@ const exampleConfig = [
 
 runTSRuleTester('require-test-tags', requireTestTags, {
   invalid: [
-    // Missing Issue ID tag
+    // Missing Issue ID tag across entire file
     {
       code: `
         test('my test', { 
@@ -47,7 +47,7 @@ runTSRuleTester('require-test-tags', requireTestTags, {
       filename: 'test.spec.ts',
       options: exampleConfig,
     },
-    // Missing team tag
+    // Missing team tag across entire file
     {
       code: `
         test('my test', { 
@@ -69,7 +69,7 @@ runTSRuleTester('require-test-tags', requireTestTags, {
       filename: 'test.spec.ts',
       options: exampleConfig,
     },
-    // Missing environment tag
+    // Missing environment tag across entire file
     {
       code: `
         test('my test', { 
@@ -80,7 +80,7 @@ runTSRuleTester('require-test-tags', requireTestTags, {
       filename: 'test.spec.ts',
       options: exampleConfig,
     },
-    // Multiple missing tags
+    // Multiple missing tags across entire file
     {
       code: `
         test('my test', { 
@@ -95,7 +95,7 @@ runTSRuleTester('require-test-tags', requireTestTags, {
       filename: 'test.spec.ts',
       options: exampleConfig,
     },
-    // No tags at all
+    // No tags at all in entire file
     {
       code: "test('my test', async ({ page }) => {})",
       errors: [
@@ -107,20 +107,9 @@ runTSRuleTester('require-test-tags', requireTestTags, {
       filename: 'test.spec.ts',
       options: exampleConfig,
     },
-    // Single tag format missing other required tags
-    {
-      code: "test('my test', { tag: '@123' }, async ({ page }) => {})",
-      errors: [
-        { data: { tagType: 'Team' }, messageId: 'missingTag' },
-        { data: { tagType: 'Component' }, messageId: 'missingTag' },
-        { data: { tagType: 'Environment' }, messageId: 'missingTag' },
-      ],
-      filename: 'test.spec.ts',
-      options: exampleConfig,
-    },
   ],
   valid: [
-    // All required tags present
+    // All required tags present in single test
     {
       code: `
         test('my test', { 
@@ -145,6 +134,50 @@ runTSRuleTester('require-test-tags', requireTestTags, {
       code: `
         test('my test', { 
           tag: ['@noid', '@team-frontend', '@user-service', '@api'] 
+        }, async ({ page }) => {})
+      `,
+      filename: 'test.spec.ts',
+      options: exampleConfig,
+    },
+    // Tags distributed across test.describe and test calls
+    {
+      code: `
+        test.describe('user management', { 
+          tag: ['@123', '@team-frontend'] 
+        }, () => {
+          test('create user', { 
+            tag: ['@user-service', '@api'] 
+          }, async ({ page }) => {})
+          
+          test('delete user', async ({ page }) => {})
+        })
+      `,
+      filename: 'test.spec.ts',
+      options: exampleConfig,
+    },
+    // Multiple test.describe blocks with distributed tags
+    {
+      code: `
+        test.describe('auth tests', { 
+          tag: ['@456', '@team-backend'] 
+        }, () => {
+          test('login', { tag: ['@auth-service'] }, async ({ page }) => {})
+        })
+        
+        test.describe('api tests', { 
+          tag: ['@backend'] 
+        }, () => {
+          test('api call', async ({ page }) => {})
+        })
+      `,
+      filename: 'test.spec.ts',
+      options: exampleConfig,
+    },
+    // Individual test without describe - still needs all required tags
+    {
+      code: `
+        test('standalone test', { 
+          tag: ['@789', '@team-frontend', '@user-service', '@api'] 
         }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
