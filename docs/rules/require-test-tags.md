@@ -1,37 +1,29 @@
 # Require Test Tags
 
-Enforces that tests have required tags based on configurable tag pools.
+Enforces that test files have required tags based on configurable tag pools.
+Tags can be distributed across `test.describe` and `test` calls within the same
+file.
 
 ## Rule Details
 
-This rule validates that tests include tags from all required tag pools. Tag
-pools are completely configurable, allowing you to define custom tag categories
-with their own patterns and exclusions.
+This rule validates that each test file includes tags from all required tag
+pools. Tag pools are completely configurable, allowing you to define custom tag
+categories with their own patterns and exclusions.
 
-### Examples
+**Important**: The rule checks for tag coverage across the entire file, not per
+individual test. Tags can be inherited from `test.describe` blocks or
+distributed across multiple `test` calls.
 
-````ts
-// ❌ Incorrect - missing required tag types
-test('my test', { tag: ['@team-frontend'] }, async ({ page }) => {})
-
-# Require Test Tags
-
-Enforces that test files have required tags based on configurable tag pools. Tags can be distributed across `test.describe` and `test` calls within the same file.
-
-## Rule Details
-
-This rule validates that each test file includes tags from all required tag pools. Tag pools are completely configurable, allowing you to define custom tag categories with their own patterns and exclusions.
-
-**Important**: The rule checks for tag coverage across the entire file, not per individual test. Tags can be inherited from `test.describe` blocks or distributed across multiple `test` calls.
-
-**Template Literal Support**: The rule supports both static string tags and template literals. Template literals with expressions are reconstructed with appropriate placeholders for pattern matching.
+**Template Literal Support**: The rule supports both static string tags and
+template literals. Template literals with expressions are reconstructed
+preserving their syntax for pattern matching.
 
 ### Examples
 
 ```ts
 // ❌ Incorrect - missing required tag types in the file
 test('my test', { tag: ['@team-frontend'] }, async ({ page }) => {})
-````
+```
 
 ```ts
 // ✅ Correct - has all required tag types in a single test
@@ -56,7 +48,7 @@ test.describe(
     test(
       'should process request',
       {
-        tag: [`@${data.testCaseId}`, '@api'], // Reconstructed as @123456 for pattern matching
+        tag: [`@${data.testCaseId}`, '@api'], // Reconstructed as @${data.testCaseId} for pattern matching
       },
       async ({ page }) => {},
     )
@@ -96,14 +88,48 @@ test(
 )
 ```
 
-test( 'my test', { tag: ['@123', '@team-frontend', '@user-service', '@api'], },
-async ({ page }) => {}, )
+## Configuration
 
-// ✅ Correct - exemption tag makes requirement optional test( 'my test', { tag:
-['@noid', '@team-frontend', '@user-service', '@api'], }, async ({ page }) => {},
-)
+Configure the rule to define multiple tag pools with their own requirements:
 
-````
+```json
+{
+  "rules": {
+    "playwright/require-test-tags": [
+      "error",
+      {
+        "pools": [
+          {
+            "name": "ID",
+            "pattern": "^@(\\d+|\\$\\{[^}]*testCaseId[^}]*\\})$",
+            "exemptions": ["@noid"]
+          },
+          {
+            "name": "Team",
+            "pattern": "^@team-.+$"
+          },
+          {
+            "name": "Service",
+            "pattern": "^@(user-service|payment-service|auth-service)$"
+          },
+          {
+            "name": "Type",
+            "pattern": "^@(api|ui|integration|e2e)$"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**Pattern Notes**:
+
+- For template literals, use patterns like
+  `^@(\\d+|\\$\\{[^}]*testCaseId[^}]*\\})$` to match both static IDs and
+  template expressions
+- Use single backslashes in JSON configuration (e.g., `\\d+`, `\\$`, `\\{`) for
+  proper regex escaping
 
 ## Options
 
@@ -118,7 +144,7 @@ interface TagPool {
   pattern: string | { source: string; flags?: string }
   exclude?: (string | { source: string; flags?: string })[]
 }
-````
+```
 
 ### Configuration Examples
 
