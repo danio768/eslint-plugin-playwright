@@ -7,6 +7,7 @@ import noCommentedOutTests from './rules/no-commented-out-tests.js'
 import noConditionalExpect from './rules/no-conditional-expect.js'
 import noConditionalInTest from './rules/no-conditional-in-test.js'
 import noDuplicateHooks from './rules/no-duplicate-hooks.js'
+import noDuplicateTags from './rules/no-duplicate-tags.js'
 import noElementHandle from './rules/no-element-handle.js'
 import noEval from './rules/no-eval.js'
 import noFocusedTest from './rules/no-focused-test.js'
@@ -44,6 +45,7 @@ import preferToHaveLength from './rules/prefer-to-have-length.js'
 import preferWebFirstAssertions from './rules/prefer-web-first-assertions.js'
 import requireHook from './rules/require-hook.js'
 import requireSoftAssertions from './rules/require-soft-assertions.js'
+import requireTestTags from './rules/require-test-tags.js'
 import requireToThrowMessage from './rules/require-to-throw-message.js'
 import requireTopLevelDescribe from './rules/require-top-level-describe.js'
 import validDescribeCallback from './rules/valid-describe-callback.js'
@@ -63,6 +65,7 @@ const index = {
     'no-conditional-expect': noConditionalExpect,
     'no-conditional-in-test': noConditionalInTest,
     'no-duplicate-hooks': noDuplicateHooks,
+    'no-duplicate-tags': noDuplicateTags,
     'no-element-handle': noElementHandle,
     'no-eval': noEval,
     'no-focused-test': noFocusedTest,
@@ -100,6 +103,7 @@ const index = {
     'prefer-web-first-assertions': preferWebFirstAssertions,
     'require-hook': requireHook,
     'require-soft-assertions': requireSoftAssertions,
+    'require-test-tags': requireTestTags,
     'require-to-throw-message': requireToThrowMessage,
     'require-top-level-describe': requireTopLevelDescribe,
     'valid-describe-callback': validDescribeCallback,
