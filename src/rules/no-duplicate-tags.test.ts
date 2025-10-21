@@ -2,9 +2,11 @@ import { runTSRuleTester } from '../utils/rule-tester.js'
 import rule from './no-duplicate-tags.js'
 
 // Test configuration with explicit project root to limit scanning scope
-const testOptions = [{
-  projectRoot: './src/rules'  // Limit to current directory for testing
-}]
+const testOptions = [
+  {
+    projectRoot: './src/rules', // Limit to current directory for testing
+  },
+]
 
 runTSRuleTester('no-duplicate-tags', rule, {
   invalid: [
@@ -15,7 +17,10 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('second test', { tag: '@123' }, async ({ page }) => {})
       `,
       errors: [
-        { data: { location: ' in this file', tag: '@123' }, messageId: 'duplicateTag' },
+        {
+          data: { location: ' in this file', tag: '@123' },
+          messageId: 'duplicateTag',
+        },
       ],
       filename: 'test.spec.ts',
       options: testOptions,
@@ -27,7 +32,10 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('test two', { tag: '@456' }, async ({ page }) => {})
       `,
       errors: [
-        { data: { location: ' in this file', tag: '@456' }, messageId: 'duplicateTag' },
+        {
+          data: { location: ' in this file', tag: '@456' },
+          messageId: 'duplicateTag',
+        },
       ],
       filename: 'test.spec.ts',
       options: testOptions,
@@ -41,8 +49,14 @@ runTSRuleTester('no-duplicate-tags', rule, {
         test('test d', { tag: '@200' }, async ({ page }) => {})
       `,
       errors: [
-        { data: { location: ' in this file', tag: '@100' }, messageId: 'duplicateTag' },
-        { data: { location: ' in this file', tag: '@200' }, messageId: 'duplicateTag' },
+        {
+          data: { location: ' in this file', tag: '@100' },
+          messageId: 'duplicateTag',
+        },
+        {
+          data: { location: ' in this file', tag: '@200' },
+          messageId: 'duplicateTag',
+        },
       ],
       filename: 'test.spec.ts',
       options: testOptions,

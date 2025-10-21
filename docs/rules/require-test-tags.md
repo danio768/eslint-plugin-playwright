@@ -4,7 +4,9 @@ Enforces that tests have required tags based on configurable tag pools.
 
 ## Rule Details
 
-This rule validates that tests include tags from all required tag pools. Tag pools are completely configurable, allowing you to define custom tag categories with their own patterns and exclusions.
+This rule validates that tests include tags from all required tag pools. Tag
+pools are completely configurable, allowing you to define custom tag categories
+with their own patterns and exclusions.
 
 ### Examples
 
@@ -12,15 +14,23 @@ This rule validates that tests include tags from all required tag pools. Tag poo
 // ❌ Incorrect - missing required tag types
 test('my test', { tag: ['@team-frontend'] }, async ({ page }) => {})
 
-// ✅ Correct - has all required tag types  
-test('my test', {
-  tag: ['@123', '@team-frontend', '@user-service', '@api']
-}, async ({ page }) => {})
+// ✅ Correct - has all required tag types
+test(
+  'my test',
+  {
+    tag: ['@123', '@team-frontend', '@user-service', '@api'],
+  },
+  async ({ page }) => {},
+)
 
 // ✅ Correct - exemption tag makes requirement optional
-test('my test', {
-  tag: ['@noid', '@team-frontend', '@user-service', '@api'] 
-}, async ({ page }) => {})
+test(
+  'my test',
+  {
+    tag: ['@noid', '@team-frontend', '@user-service', '@api'],
+  },
+  async ({ page }) => {},
+)
 ```
 
 ## Options
@@ -48,22 +58,25 @@ export default [
   {
     files: ['**/*.spec.ts'],
     rules: {
-      'playwright/require-test-tags': ['error', {
-        tagPools: [
-          {
-            name: 'Issue ID',
-            pattern: '^@\\d+$',
-            exclude: ['@noid']
-          },
-          {
-            name: 'Team',
-            pattern: '^@team-'
-          }
-        ],
-        sharedPaths: ['shared']
-      }]
-    }
-  }
+      'playwright/require-test-tags': [
+        'error',
+        {
+          tagPools: [
+            {
+              name: 'Issue ID',
+              pattern: '^@\\d+$',
+              exclude: ['@noid'],
+            },
+            {
+              name: 'Team',
+              pattern: '^@team-',
+            },
+          ],
+          sharedPaths: ['shared'],
+        },
+      ],
+    },
+  },
 ]
 ```
 
@@ -104,9 +117,11 @@ export default [
   - Object: `{ source: "^@team-", flags: "i" }`
 - **`exclude`** (array, optional): Patterns or literals to exclude
   - String literals: `["@noid"]` - Makes the requirement optional when present
-  - Regex patterns: `[{ source: "^@\\d+$", flags: "i" }]` - Excludes from pattern matching
+  - Regex patterns: `[{ source: "^@\\d+$", flags: "i" }]` - Excludes from
+    pattern matching
 
-**Note**: All defined tag pools are required. If you configure a tag pool, it will be enforced for all tests.
+**Note**: All defined tag pools are required. If you configure a tag pool, it
+will be enforced for all tests.
 
 ### Shared Paths
 
@@ -120,60 +135,68 @@ Use `sharedPaths` to ignore validation in specific directories:
 
 ## Exemption Behavior
 
-When a literal string exclusion tag is present (like `@noid`), the entire tag pool requirement becomes optional:
+When a literal string exclusion tag is present (like `@noid`), the entire tag
+pool requirement becomes optional:
 
 ```ts
 // This test would normally require an Issue ID tag
 // But @noid exempts it from that requirement
-test('my test', {
-  tag: ['@noid', '@team-frontend', '@user-service', '@api']
-}, async ({ page }) => {})
+test(
+  'my test',
+  {
+    tag: ['@noid', '@team-frontend', '@user-service', '@api'],
+  },
+  async ({ page }) => {},
+)
 ```
 
 ## Use Cases
 
 ### Project-Specific Tags
+
 ```js
 {
   tagPools: [
     {
       name: 'Feature Area',
-      pattern: '^@feature-'
+      pattern: '^@feature-',
     },
     {
       name: 'Test Type',
-      pattern: '^@(unit|integration|e2e)$'
-    }
+      pattern: '^@(unit|integration|e2e)$',
+    },
   ]
 }
 ```
 
 ### Issue Tracking Integration
+
 ```js
 {
   tagPools: [
     {
       name: 'Ticket ID',
       pattern: '^@(jira|github)-\\w+$',
-      exclude: ['@no-ticket']
-    }
+      exclude: ['@no-ticket'],
+    },
   ]
 }
 ```
 
 ### Environment-Specific Testing
+
 ```js
 {
   tagPools: [
     {
       name: 'Environment',
       pattern: '^@env-(dev|staging|prod)$',
-      exclude: ['@env-local']
+      exclude: ['@env-local'],
     },
     {
       name: 'Browser',
-      pattern: '^@(chrome|firefox|safari)$'
-    }
+      pattern: '^@(chrome|firefox|safari)$',
+    },
   ]
 }
 ```

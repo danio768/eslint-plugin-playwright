@@ -2,35 +2,37 @@ import { runTSRuleTester } from '../utils/rule-tester.js'
 import requireTestTags from './require-test-tags.js'
 
 // Example configuration with flexible tag pools
-const exampleConfig = [{
-  sharedPaths: ['shared'],
-  tagPools: [
-    {
-      exclude: ['@noid'],
-      name: 'Issue ID',
-      pattern: '^@(\\d+|\\$\\{[^}]*id[^}]*\\})$'
-    },
-    {
-      name: 'Team',
-      pattern: '^@team-'
-    },
-    {
-      exclude: [
-        { flags: 'i', source: '^@team-' },
-        '@noid',
-        { flags: 'i', source: '^@(frontend|backend|api)$' },
-        { flags: 'i', source: '^@\\d+$' },
-        { flags: 'i', source: '^@\\$\\{[^}]*id[^}]*\\}$' }
-      ],
-      name: 'Component',
-      pattern: '^@[a-z0-9_-]+$'
-    },
-    {
-      name: 'Environment',
-      pattern: '^@(frontend|backend|api)$'
-    }
-  ]
-}]
+const exampleConfig = [
+  {
+    sharedPaths: ['shared'],
+    tagPools: [
+      {
+        exclude: ['@noid'],
+        name: 'Issue ID',
+        pattern: '^@(\\d+|\\$\\{[^}]*id[^}]*\\})$',
+      },
+      {
+        name: 'Team',
+        pattern: '^@team-',
+      },
+      {
+        exclude: [
+          { flags: 'i', source: '^@team-' },
+          '@noid',
+          { flags: 'i', source: '^@(frontend|backend|api)$' },
+          { flags: 'i', source: '^@\\d+$' },
+          { flags: 'i', source: '^@\\$\\{[^}]*id[^}]*\\}$' },
+        ],
+        name: 'Component',
+        pattern: '^@[a-z0-9_-]+$',
+      },
+      {
+        name: 'Environment',
+        pattern: '^@(frontend|backend|api)$',
+      },
+    ],
+  },
+]
 
 runTSRuleTester('require-test-tags', requireTestTags, {
   invalid: [
@@ -41,9 +43,7 @@ runTSRuleTester('require-test-tags', requireTestTags, {
           tag: ['@team-frontend', '@user-service', '@api'] 
         }, async ({ page }) => {})
       `,
-      errors: [
-        { data: { tagType: 'Issue ID' }, messageId: 'missingTag' },
-      ],
+      errors: [{ data: { tagType: 'Issue ID' }, messageId: 'missingTag' }],
       filename: 'test.spec.ts',
       options: exampleConfig,
     },
@@ -175,18 +175,20 @@ runTSRuleTester('require-test-tags', requireTestTags, {
         }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
-      options: [{
-        tagPools: [
-          {
-            name: 'Issue ID',
-            pattern: '^@\\d+$'
-          },
-          {
-            name: 'Priority',
-            pattern: '^@priority-'
-          }
-        ]
-      }],
+      options: [
+        {
+          tagPools: [
+            {
+              name: 'Issue ID',
+              pattern: '^@\\d+$',
+            },
+            {
+              name: 'Priority',
+              pattern: '^@priority-',
+            },
+          ],
+        },
+      ],
     },
   ],
 })
