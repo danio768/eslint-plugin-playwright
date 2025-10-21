@@ -3562,11 +3562,13 @@ var require_test_tags_default = createRule({
     return {
       CallExpression(node) {
         const call = parseFnCall(context, node);
-        if (!call || call.type !== "test")
+        if (!call || call.type !== "test" && call.type !== "describe")
           return;
-        hasAnyTest = true;
-        if (!firstTestNode) {
-          firstTestNode = node;
+        if (call.type === "test") {
+          hasAnyTest = true;
+          if (!firstTestNode) {
+            firstTestNode = node;
+          }
         }
         if (node.arguments.length < 2)
           return;
@@ -3624,13 +3626,13 @@ var require_test_tags_default = createRule({
   },
   meta: {
     docs: {
-      description: "Enforce required tags in Playwright test files",
+      description: "Enforce required tags in Playwright test files (file-level validation)",
       recommended: true
     },
     hasSuggestions: true,
     messages: {
-      missingTag: "Missing required tag type: {{tagType}}",
-      suggestAddTag: "Add {{tagType}} tag"
+      missingTag: "Missing required tag type in file: {{tagType}}",
+      suggestAddTag: "Add {{tagType}} tag to test.describe or test"
     },
     schema: [
       {
