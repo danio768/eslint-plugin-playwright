@@ -1,15 +1,21 @@
 # No Duplicate Tags
 
-Prevents duplicate `@number` tags across test files to ensure unique test identification.
+Prevents duplicate `@number` tags within and across test files to ensure unique test identification.
 
 ## Rule Details
 
-This rule detects when the same `@number` tag (like `@123`, `@456`) is used in multiple tests across `.spec.ts` files. This is useful for ensuring unique test case identifiers for issue tracking or test management systems.
+This rule detects when the same `@number` tag (like `@123`, `@456`) is used in multiple tests, either within the same `.spec.ts` file or across different files. This is useful for ensuring unique test case identifiers for issue tracking or test management systems.
 
 ### Examples
 
 ```ts
-// ❌ Incorrect - @123 appears in multiple tests
+// ❌ Incorrect - @123 appears in multiple tests within same file
+test('first test', { tag: '@123' }, async ({ page }) => {})
+test('second test', { tag: '@123' }, async ({ page }) => {})
+```
+
+```ts
+// ❌ Incorrect - @123 appears in multiple tests across files
 // file1.spec.ts
 test('first test', { tag: '@123' }, async ({ page }) => {})
 
@@ -18,18 +24,18 @@ test('second test', { tag: '@123' }, async ({ page }) => {})
 ```
 
 ```ts
-// ✅ Correct - each test has unique @number tags
+// ✅ Correct - each test has unique @number tags within file
+test('first test', { tag: '@123' }, async ({ page }) => {})
+test('second test', { tag: '@456' }, async ({ page }) => {})
+```
+
+```ts
+// ✅ Correct - each test has unique @number tags across files
 // file1.spec.ts
 test('first test', { tag: '@123' }, async ({ page }) => {})
 
 // file2.spec.ts
 test('second test', { tag: '@456' }, async ({ page }) => {})
-```
-
-```ts
-// ✅ Correct - same tag in same file is allowed
-test('test one', { tag: '@123' }, async ({ page }) => {})
-test('test two', { tag: '@123' }, async ({ page }) => {})
 ```
 
 ```ts
@@ -48,11 +54,11 @@ test('test two', { tag: '@${caseData.id}' }, async ({ page }) => {})
 
 - Scans all `.spec.ts` files in the workspace
 - Extracts `@number` pattern tags (e.g., `@123`, `@4567`)
+- Reports duplicate usage within the same file
 - Reports duplicate usage across different files
 - Ignores:
   - Non-number tags (e.g., `@team-frontend`, `@api`)
   - Dynamic tags with template expressions (e.g., `@${variable}`)
-  - Duplicates within the same file
 
 ## Options
 
@@ -61,8 +67,9 @@ This rule has no configuration options.
 ## When To Use
 
 - When you use numeric tags as unique test case identifiers
-- When integrating with test management systems that require unique IDs
+- When integrating with test management systems that require unique IDs  
 - When you need to prevent accidental reuse of test case numbers
+- When you want to enforce unique numeric tags both within files and across your entire test suite
 - In large projects where developers might accidentally use the same number
 
 ## When Not To Use
@@ -108,4 +115,20 @@ test('dashboard test', {
 test('settings test', { 
   tag: ['@502', '@dashboard', '@smoke']  // @dashboard, @smoke can repeat
 }, async ({ page }) => {})
+```
+
+### Within Same File
+```ts
+// ❌ This will trigger duplicate errors
+test('first test', { tag: '@123' }, async ({ page }) => {})
+test('second test', { tag: '@123' }, async ({ page }) => {})  // Error: Duplicate tag "@123" found in this file
+```
+
+### Across Different Files
+```ts
+// file1.spec.ts
+test('login test', { tag: '@123' }, async ({ page }) => {})
+
+// file2.spec.ts  
+test('logout test', { tag: '@123' }, async ({ page }) => {})  // Error: Duplicate tag "@123" found in file1.spec.ts
 ```
