@@ -200,6 +200,37 @@ runTSRuleTester('require-test-tags', requireTestTags, {
       code: "test('my test', async ({ page }) => {})",
       filename: 'test.spec.ts',
     },
+    // Tags distributed across test.describe and test should be valid
+    {
+      code: `
+        test.describe('Feature Tests', { tag: ['@123', '@team-frontend', '@user-service'] }, () => {
+          test('should work', { tag: ['@api'] }, async ({ page }) => {})
+        })
+      `,
+      filename: 'test.spec.ts',
+      options: exampleConfig,
+    },
+    // Template literal tags should work with reconstruction
+    {
+      code: `
+        const data = { testCaseId: '123' }
+        test.describe('Template Tags', { tag: ['@team-frontend', '@user-service'] }, () => {
+          test('Template Test', { tag: [\`@\${data.testCaseId}\`, '@api'] }, async ({ page }) => {})
+        })
+      `,
+      filename: 'test.spec.ts',
+      options: exampleConfig,
+    },
+    // Mixed static and template literal tags
+    {
+      code: `
+        test.describe('Mixed Tags', { tag: ['@456', '@team-backend'] }, () => {
+          test('Mixed Test', { tag: [\`@order-service\`, '@api'] }, async ({ page }) => {})
+        })
+      `,
+      filename: 'test.spec.ts',
+      options: exampleConfig,
+    },
     // Custom tag pools - only require Issue ID and priority
     {
       code: `

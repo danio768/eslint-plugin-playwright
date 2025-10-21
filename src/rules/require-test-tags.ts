@@ -3,6 +3,7 @@ import { createRule } from '../utils/createRule.js'
 import { parseFnCall } from '../utils/parseFnCall.js'
 import {
   extractTagsFromProperty,
+  extractTagsFromText,
   findTagPropertyNode,
   matchesPattern,
 } from '../utils/tags.js'
@@ -85,6 +86,7 @@ export default createRule({
     }
 
     const allTestTags: string[] = []
+    const allTemplateLiterals: TSESTree.TemplateLiteral[] = []
     let firstTestNode: any = null
     let firstTagNode: any = null
     let hasAnyTest = false
@@ -114,8 +116,14 @@ export default createRule({
           optionsArg as TSESTree.ObjectExpression,
         )
 
-        // Store all tags from both test() and test.describe()
-        allTestTags.push(...tags)
+        // Separate string tags from template literal nodes
+        for (const tag of tags) {
+          if (typeof tag === 'string') {
+            allTestTags.push(tag)
+          } else if (tag.type === 'templateLiteral') {
+            allTemplateLiterals.push(tag.node)
+          }
+        }
 
         // Store the first tag node for better error reporting
         if (!firstTagNode && optionsArg) {
@@ -125,6 +133,14 @@ export default createRule({
 
       'Program:exit'() {
         if (!hasAnyTest) return
+
+        // If we didn't collect many tags via AST, try text-based extraction as fallback
+        // This approach is inspired by the working version
+        if (allTestTags.length === 0) {
+          const text = context.sourceCode.getText()
+          const textTags = extractTagsFromText(text)
+          allTestTags.push(...textTags)
+        }
 
         // Validate each required tag pool
         for (const pool of tagPools) {

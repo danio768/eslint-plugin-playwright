@@ -1053,6 +1053,28 @@ function scanTestDirectories(maxDepth, excludedDirs, files, projectRoot) {
 }
 
 // src/utils/tags.ts
+function reconstructTemplateLiteral(templateLiteral) {
+  if (templateLiteral.expressions.length === 0 && templateLiteral.quasis.length === 1) {
+    return templateLiteral.quasis[0].value.raw;
+  }
+  let result = "";
+  for (let i = 0; i < templateLiteral.quasis.length; i++) {
+    result += templateLiteral.quasis[i].value.raw;
+    if (i < templateLiteral.expressions.length) {
+      const expression = templateLiteral.expressions[i];
+      result += "${";
+      if (expression.type === "MemberExpression" && expression.object.type === "Identifier" && expression.property.type === "Identifier") {
+        result += `${expression.object.name}.${expression.property.name}`;
+      } else if (expression.type === "Identifier") {
+        result += expression.name;
+      } else {
+        result += "expr";
+      }
+      result += "}";
+    }
+  }
+  return result;
+}
 function extractTagsFromProperty(node) {
   const tagProperty = node.properties.find(
     (prop) => prop.type === "Property" && !("argument" in prop) && prop.key.type === "Identifier" && prop.key.name === "tag"
@@ -1063,12 +1085,28 @@ function extractTagsFromProperty(node) {
   if (tagValue.type === "Literal" && typeof tagValue.value === "string") {
     return [tagValue.value];
   } else if (tagValue.type === "ArrayExpression") {
-    return tagValue.elements.filter(
-      (element) => element?.type === "Literal" && typeof element.value === "string"
-    ).map((element) => element.value);
+    const tags = [];
+    for (const element of tagValue.elements) {
+      if (!element)
+        continue;
+      if (element.type === "Literal" && typeof element.value === "string") {
+        tags.push(element.value);
+      } else if (element.type === "TemplateLiteral") {
+        const reconstructed = reconstructTemplateLiteral(element);
+        if (reconstructed) {
+          tags.push(reconstructed);
+        } else {
+          tags.push({ type: "templateLiteral", node: element });
+        }
+      }
+    }
+    return tags;
   } else if (tagValue.type === "TemplateLiteral") {
-    const value = getStringValue(tagValue);
-    return value ? [value] : [];
+    const reconstructed = reconstructTemplateLiteral(tagValue);
+    if (reconstructed) {
+      return [reconstructed];
+    }
+    return [{ type: "templateLiteral", node: tagValue }];
   }
   return [];
 }
@@ -1077,6 +1115,25 @@ function findTagPropertyNode(node) {
     (prop) => prop.type === "Property" && !("argument" in prop) && prop.key.type === "Identifier" && prop.key.name === "tag"
   );
   return tagProperty || node;
+}
+function extractTagsFromText(text) {
+  const tagArrayRegex = /tag\s*:\s*\[([^\]]*)\]/g;
+  let match;
+  const allTags = [];
+  while ((match = tagArrayRegex.exec(text)) !== null) {
+    const tagContent = match[1];
+    const tagMatches = tagContent.match(/(['"`])((?:(?!\1)[^\\]|\\.)*)(\1|`[^`]*`)/g) || [];
+    for (const tagMatch of tagMatches) {
+      let tag = tagMatch.replace(/^['"`]|['"`]$/g, "");
+      if (tagMatch.startsWith("`") || tagMatch.includes("${")) {
+        tag = tagMatch.replace(/^`|`$/g, "");
+      }
+      if (tag.trim()) {
+        allTags.push(tag.trim());
+      }
+    }
+  }
+  return allTags;
 }
 function extractNumericTagsFromText(text) {
   const tagMatches = text.match(/tag\s*:\s*(?:\[([^\]]*)\]|['"`]([^'"`]*)['"`])/g) || [];
@@ -1116,7 +1173,7 @@ var no_duplicate_tags_default = createRule({
     }
     const projectRoot = options.projectRoot || process.cwd();
     const fileCache = /* @__PURE__ */ new Map();
-    const extractTagsFromText = (text) => {
+    const extractTagsFromText2 = (text) => {
       const cacheKey = text.substring(0, 100);
       if (fileCache.has(cacheKey)) {
         return fileCache.get(cacheKey);
@@ -1175,7 +1232,7 @@ var no_duplicate_tags_default = createRule({
             const content = readFileContent(otherFile);
             if (!content)
               continue;
-            const otherTags = extractTagsFromText(content);
+            const otherTags = extractTagsFromText2(content);
             if (otherTags.includes(tag)) {
               const relativePath = path2.relative(projectRoot, otherFile);
               context.report({
@@ -3556,6 +3613,7 @@ var require_test_tags_default = createRule({
       return true;
     };
     const allTestTags = [];
+    const allTemplateLiterals = [];
     let firstTestNode = null;
     let firstTagNode = null;
     let hasAnyTest = false;
@@ -3578,7 +3636,13 @@ var require_test_tags_default = createRule({
         const tags = extractTagsFromProperty(
           optionsArg
         );
-        allTestTags.push(...tags);
+        for (const tag of tags) {
+          if (typeof tag === "string") {
+            allTestTags.push(tag);
+          } else if (tag.type === "templateLiteral") {
+            allTemplateLiterals.push(tag.node);
+          }
+        }
         if (!firstTagNode && optionsArg) {
           firstTagNode = findTagPropertyNode(optionsArg);
         }
@@ -3586,6 +3650,11 @@ var require_test_tags_default = createRule({
       "Program:exit"() {
         if (!hasAnyTest)
           return;
+        if (allTestTags.length === 0) {
+          const text = context.sourceCode.getText();
+          const textTags = extractTagsFromText(text);
+          allTestTags.push(...textTags);
+        }
         for (const pool of tagPools) {
           const hasExemptionTag = pool.exclude && pool.exclude.some((exclusion) => {
             if (typeof exclusion === "string") {

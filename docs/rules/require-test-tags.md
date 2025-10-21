@@ -24,6 +24,8 @@ This rule validates that each test file includes tags from all required tag pool
 
 **Important**: The rule checks for tag coverage across the entire file, not per individual test. Tags can be inherited from `test.describe` blocks or distributed across multiple `test` calls.
 
+**Template Literal Support**: The rule supports both static string tags and template literals. Template literals with expressions are reconstructed with appropriate placeholders for pattern matching.
+
 ### Examples
 
 ```ts
@@ -39,6 +41,26 @@ test(
     tag: ['@123', '@team-frontend', '@user-service', '@api'],
   },
   async ({ page }) => {},
+)
+```
+
+```ts
+// ✅ Correct - template literal tags are supported
+const data = { testCaseId: '123' }
+test.describe(
+  'API Tests',
+  {
+    tag: ['@team-frontend', '@user-service'],
+  },
+  () => {
+    test(
+      'should process request',
+      {
+        tag: [`@${data.testCaseId}`, '@api'], // Reconstructed as @123456 for pattern matching
+      },
+      async ({ page }) => {},
+    )
+  },
 )
 ```
 
