@@ -1197,7 +1197,7 @@ var no_duplicate_tags_default = createRule({
           optionsArg
         );
         for (const tag of tags) {
-          if (/^@\d+$/.test(tag)) {
+          if (typeof tag === "string" && /^@\d+$/.test(tag)) {
             currentFileTags.push({ node: optionsArg, tag });
           }
         }
@@ -1228,6 +1228,7 @@ var no_duplicate_tags_default = createRule({
               continue;
             }
           }
+          const duplicateFiles = [];
           for (const otherFile of otherFiles) {
             const content = readFileContent(otherFile);
             if (!content)
@@ -1235,12 +1236,23 @@ var no_duplicate_tags_default = createRule({
             const otherTags = extractTagsFromText2(content);
             if (otherTags.includes(tag)) {
               const relativePath = path2.relative(projectRoot, otherFile);
+              duplicateFiles.push(relativePath);
+            }
+          }
+          if (duplicateFiles.length > 0) {
+            if (duplicateFiles.length === 1) {
               context.report({
-                data: { location: ` in ${relativePath}`, tag },
+                data: { location: ` in ${duplicateFiles[0]}`, tag },
                 messageId: "duplicateTag",
                 node
               });
-              break;
+            } else {
+              const locations = duplicateFiles.join(", ");
+              context.report({
+                data: { location: ` in ${locations}`, tag },
+                messageId: "duplicateTag",
+                node
+              });
             }
           }
         }
