@@ -83,7 +83,7 @@ export function extractNumericTagsFromText(text: string): string[] {
  * Creates a RegExp from a pattern string or object configuration.
  * Follows the same pattern as valid-test-tags rule.
  */
-export function createRegExpFromPattern(pattern: string | { flags?: string; source: string }): RegExp {
+function createRegExpFromPattern(pattern: string | { flags?: string; source: string }): RegExp {
   if (typeof pattern === 'string') {
     return new RegExp(pattern, 'i')
   }

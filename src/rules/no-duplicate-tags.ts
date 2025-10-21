@@ -1,7 +1,7 @@
 import { TSESTree } from '@typescript-eslint/utils'
 import * as path from 'path'
 import { createRule } from '../utils/createRule.js'
-import { getAllSpecFiles as getSpecFiles, pathExists, readFileContent } from '../utils/fileSystem.js'
+import { getAllSpecFiles as getSpecFiles, readFileContent } from '../utils/fileSystem.js'
 import { parseFnCall } from '../utils/parseFnCall.js'
 import { extractNumericTagsFromText, extractTagsFromProperty } from '../utils/tags.js'
 
@@ -23,12 +23,6 @@ export default createRule({
     
     // Simple cache to avoid re-scanning files multiple times in the same session
     const fileCache = new Map<string, string[]>()
-    
-    // Validate project root exists
-    if (!pathExists(projectRoot)) {
-      // Fallback to current working directory if validation fails
-      // This prevents the rule from crashing in edge cases
-    }
     
     const extractTagsFromText = (text: string): string[] => {
       // Use cache to avoid re-parsing the same file content

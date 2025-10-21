@@ -7,12 +7,26 @@ import * as path from 'path'
  */
 export function getAllSpecFiles(projectRoot: string): string[] {
   const files: string[] = []
-  const maxDepth = 10 // Prevent infinite recursion
+  const maxDepth = 10
   const excludedDirs = ['node_modules', '.git', 'dist', 'build', '.next', 'coverage']
   
+  scanTestDirectories(maxDepth, excludedDirs, files, projectRoot)
+  return files
+}
+
+/**
+ * Internal helper function that recursively scans directories for .spec.ts files.
+ * Modifies the files array in-place by adding found spec file paths.
+ * 
+ * @param maxDepth - Maximum directory depth to prevent infinite recursion
+ * @param excludedDirs - Array of directory names to skip during scanning
+ * @param files - Array to collect found .spec.ts file paths (modified in-place)
+ * @param projectRoot - Root directory path to start scanning from
+ */
+function scanTestDirectories(maxDepth: number, excludedDirs: string[], files: string[], projectRoot: string) {
   const searchDir = (dir: string, depth = 0) => {
     if (depth > maxDepth) return
-    
+
     try {
       const entries = fs.readdirSync(dir, { withFileTypes: true })
       for (const entry of entries) {
@@ -30,20 +44,8 @@ export function getAllSpecFiles(projectRoot: string): string[] {
       // Ignore directories we can't read (permissions, etc.)
     }
   }
-  
-  searchDir(projectRoot)
-  return files
-}
 
-/**
- * Safely checks if a path exists, with fallback error handling.
- */
-export function pathExists(filePath: string): boolean {
-  try {
-    return fs.existsSync(filePath)
-  } catch {
-    return false
-  }
+  searchDir(projectRoot)
 }
 
 /**
