@@ -240,7 +240,8 @@ export default createRule({
                       tag.toLowerCase() === exclusion.toLowerCase(),
                   )
                 }
-                return false
+                // Handle regex pattern objects
+                return availableTags.some((tag) => matchesPattern(tag, exclusion))
               })) {
                 continue // Skip validation for this test call
               }
@@ -284,7 +285,8 @@ export default createRule({
                     tag.toLowerCase() === exclusion.toLowerCase(),
                 )
               }
-              return false
+              // Handle regex pattern objects
+              return allTestTags.some((tag) => matchesPattern(tag, exclusion))
             })) {
               continue // Skip validation for this pool
             }

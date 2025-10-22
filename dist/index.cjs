@@ -3727,7 +3727,7 @@ var require_test_tags_default = createRule({
                     (tag) => tag === exclusion || tag.toLowerCase() === exclusion.toLowerCase()
                   );
                 }
-                return false;
+                return availableTags.some((tag) => matchesPattern(tag, exclusion));
               })) {
                 continue;
               }
@@ -3760,7 +3760,7 @@ var require_test_tags_default = createRule({
                   (tag) => tag === exclusion || tag.toLowerCase() === exclusion.toLowerCase()
                 );
               }
-              return false;
+              return allTestTags.some((tag) => matchesPattern(tag, exclusion));
             })) {
               continue;
             }
