@@ -10,13 +10,18 @@ This rule validates that each test file includes tags from all required tag
 pools. Tag pools are completely configurable, allowing you to define custom tag
 categories with their own patterns and exclusions.
 
-**Important**: The rule checks for tag coverage across the entire file, not per
+**Important**: By default, the rule checks for tag coverage across the entire file, not per
 individual test. Tags can be inherited from `test.describe` blocks or
-distributed across multiple `test` calls.
+distributed across multiple `test` calls. However, you can enable **granular reporting**
+for specific tag pools to validate each test individually.
 
 **Template Literal Support**: The rule supports both static string tags and
 template literals. Template literals with expressions are reconstructed
 preserving their syntax for pattern matching.
+
+**Granular Reporting**: Enable per-test validation for specific tag pools when you need
+stricter enforcement. This is particularly useful for tracking identifiers or metadata
+that should be present on every individual test.
 
 ### Examples
 
@@ -49,6 +54,33 @@ test.describe(
       'should process request',
       {
         tag: [`@${data.testCaseId}`, '@api'], // Reconstructed as @${data.testCaseId} for pattern matching
+      },
+      async ({ page }) => {},
+    )
+  },
+)
+```
+
+```ts
+// ✅ Correct - granular reporting validates each test individually
+test.describe(
+  'user management',
+  {
+    tag: ['@team-frontend', '@user-service'], // Shared across all tests in describe
+  },
+  () => {
+    test(
+      'create user',
+      {
+        tag: ['@123', '@api'], // This test has ID @123
+      },
+      async ({ page }) => {},
+    )
+
+    test(
+      'delete user', 
+      {
+        tag: ['@456', '@api'], // This test has ID @456
       },
       async ({ page }) => {},
     )
@@ -102,7 +134,8 @@ Configure the rule to define multiple tag pools with their own requirements:
           {
             "name": "ID",
             "pattern": "^@(\\d+|\\$\\{[^}]*testCaseId[^}]*\\})$",
-            "exemptions": ["@noid"]
+            "exemptions": ["@noid"],
+            "granularReporting": true
           },
           {
             "name": "Team",
@@ -122,6 +155,10 @@ Configure the rule to define multiple tag pools with their own requirements:
   }
 }
 ```
+
+**Granular Reporting**: Set `granularReporting: true` on a tag pool to validate each
+individual test instead of checking file-level coverage. This ensures every test has
+the required tags, not just the file as a whole.
 
 **Pattern Notes**:
 
@@ -143,6 +180,7 @@ interface TagPool {
   name: string
   pattern: string | { source: string; flags?: string }
   exclude?: (string | { source: string; flags?: string })[]
+  granularReporting?: boolean
 }
 ```
 
@@ -186,7 +224,8 @@ export default [
     {
       name: 'Issue ID',
       pattern: '^@(\\d+|\\$\\{[^}]*id[^}]*\\})$',
-      exclude: ['@noid']
+      exclude: ['@noid'],
+      granularReporting: true // Validate each test individually
     },
     {
       name: 'Component',
@@ -196,11 +235,13 @@ export default [
         '@noid',
         { source: '^@(frontend|backend|api)$', flags: 'i' },
         { source: '^@\\d+$', flags: 'i' }
-      ]
+      ],
+      granularReporting: true // Each test must have component tag
     },
     {
       name: 'Environment',
       pattern: '^@(frontend|backend|api)$'
+      // No granularReporting - file-level validation is sufficient
     }
   ],
   sharedPaths: ['shared', 'common']
@@ -217,9 +258,38 @@ export default [
   - String literals: `["@noid"]` - Makes the requirement optional when present
   - Regex patterns: `[{ source: "^@\\d+$", flags: "i" }]` - Excludes from
     pattern matching
+- **`granularReporting`** (boolean, optional): Enable per-test validation
+  - `false` (default): File-level validation - tags can be distributed across the file
+  - `true`: Per-test validation - each individual test must have matching tags
 
 **Note**: All defined tag pools are required. If you configure a tag pool, it
 will be enforced for all tests.
+
+## Granular Reporting vs File-Level Validation
+
+### File-Level Validation (Default)
+```ts
+// ✅ Valid - tags distributed across describe and test
+test.describe('suite', { tag: ['@team-frontend'] }, () => {
+  test('test 1', { tag: ['@123'] }, async () => {}) // Has @team-frontend from describe
+  test('test 2', async () => {}) // Also has @team-frontend from describe
+})
+```
+
+### Granular Reporting (Per-Test)
+```ts
+// ❌ Invalid with granularReporting: true for ID pool
+test.describe('suite', { tag: ['@team-frontend'] }, () => {
+  test('test 1', { tag: ['@123'] }, async () => {}) // ✅ Has ID @123
+  test('test 2', async () => {}) // ❌ Missing required ID tag
+})
+
+// ✅ Valid with granularReporting: true
+test.describe('suite', { tag: ['@team-frontend'] }, () => {
+  test('test 1', { tag: ['@123'] }, async () => {}) // ✅ Has ID @123
+  test('test 2', { tag: ['@456'] }, async () => {}) // ✅ Has ID @456
+})
+```
 
 ### Shared Paths
 
@@ -295,6 +365,31 @@ test(
       name: 'Browser',
       pattern: '^@(chrome|firefox|safari)$',
     },
+  ]
+}
+```
+
+### Test Case Tracking with Granular Reporting
+
+```js
+{
+  tagPools: [
+    {
+      name: 'Test Case ID',
+      pattern: '^@tc-\\d+$',
+      granularReporting: true, // Every test needs unique ID
+      exclude: ['@no-tc']
+    },
+    {
+      name: 'Priority',
+      pattern: '^@(p0|p1|p2|p3)$',
+      granularReporting: true // Every test needs priority
+    },
+    {
+      name: 'Feature Area',
+      pattern: '^@feature-\\w+$'
+      // File-level is fine - whole suite can share feature area
+    }
   ]
 }
 ```

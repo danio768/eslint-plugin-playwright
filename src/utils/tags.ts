@@ -1,5 +1,4 @@
 import { TSESTree } from '@typescript-eslint/utils'
-import { getStringValue } from './ast.js'
 
 /**
  * Attempts to reconstruct a template literal preserving template syntax. This
@@ -58,7 +57,7 @@ export function reconstructTemplateLiteral(
  */
 export function extractTagsFromProperty(
   node: TSESTree.ObjectExpression,
-): Array<string | { type: 'templateLiteral'; node: TSESTree.TemplateLiteral }> {
+): Array<string | { node: TSESTree.TemplateLiteral; type: 'templateLiteral' }> {
   const tagProperty = node.properties.find(
     (prop) =>
       prop.type === 'Property' &&
@@ -75,7 +74,7 @@ export function extractTagsFromProperty(
     return [tagValue.value]
   } else if (tagValue.type === 'ArrayExpression') {
     const tags: Array<
-      string | { type: 'templateLiteral'; node: TSESTree.TemplateLiteral }
+      string | { node: TSESTree.TemplateLiteral; type: 'templateLiteral' }
     > = []
 
     for (const element of tagValue.elements) {
@@ -90,7 +89,7 @@ export function extractTagsFromProperty(
           tags.push(reconstructed)
         } else {
           // For complex templates with expressions, return the node for pattern checking
-          tags.push({ type: 'templateLiteral', node: element })
+          tags.push({ node: element, type: 'templateLiteral' })
         }
       }
     }
@@ -103,7 +102,7 @@ export function extractTagsFromProperty(
       return [reconstructed]
     }
     // For complex templates, return the node
-    return [{ type: 'templateLiteral', node: tagValue }]
+    return [{ node: tagValue, type: 'templateLiteral' }]
   }
 
   return []

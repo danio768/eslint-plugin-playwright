@@ -1096,7 +1096,7 @@ function extractTagsFromProperty(node) {
         if (reconstructed) {
           tags.push(reconstructed);
         } else {
-          tags.push({ type: "templateLiteral", node: element });
+          tags.push({ node: element, type: "templateLiteral" });
         }
       }
     }
@@ -1106,7 +1106,7 @@ function extractTagsFromProperty(node) {
     if (reconstructed) {
       return [reconstructed];
     }
-    return [{ type: "templateLiteral", node: tagValue }];
+    return [{ node: tagValue, type: "templateLiteral" }];
   }
   return [];
 }
@@ -3629,34 +3629,77 @@ var require_test_tags_default = createRule({
     let firstTestNode = null;
     let firstTagNode = null;
     let hasAnyTest = false;
+    const describeStack = [];
+    const testCalls = [];
     return {
       CallExpression(node) {
         const call = parseFnCall(context, node);
         if (!call || call.type !== "test" && call.type !== "describe")
           return;
-        if (call.type === "test") {
+        const callTags = [];
+        const callTemplateLiterals = [];
+        if (node.arguments.length >= 2) {
+          const optionsArg = node.arguments[1];
+          if (optionsArg && optionsArg.type === "ObjectExpression") {
+            const tags = extractTagsFromProperty(
+              optionsArg
+            );
+            for (const tag of tags) {
+              if (typeof tag === "string") {
+                callTags.push(tag);
+                allTestTags.push(tag);
+              } else if (tag.type === "templateLiteral") {
+                callTemplateLiterals.push(tag.node);
+                allTemplateLiterals.push(tag.node);
+              }
+            }
+            if (!firstTagNode) {
+              firstTagNode = findTagPropertyNode(optionsArg);
+            }
+          }
+        }
+        if (call.type === "describe") {
+          const inheritedTags = describeStack.flatMap((desc) => desc.tags);
+          const inheritedTemplateLiterals = describeStack.flatMap(
+            (desc) => desc.templateLiterals
+          );
+          describeStack.push({
+            node,
+            tags: [...inheritedTags, ...callTags],
+            templateLiterals: [
+              ...inheritedTemplateLiterals,
+              ...callTemplateLiterals
+            ]
+          });
+        } else if (call.type === "test") {
           hasAnyTest = true;
           if (!firstTestNode) {
             firstTestNode = node;
           }
-        }
-        if (node.arguments.length < 2)
-          return;
-        const optionsArg = node.arguments[1];
-        if (!optionsArg || optionsArg.type !== "ObjectExpression")
-          return;
-        const tags = extractTagsFromProperty(
-          optionsArg
-        );
-        for (const tag of tags) {
-          if (typeof tag === "string") {
-            allTestTags.push(tag);
-          } else if (tag.type === "templateLiteral") {
-            allTemplateLiterals.push(tag.node);
+          const inheritedTags = describeStack.flatMap((desc) => desc.tags);
+          const inheritedTemplateLiterals = describeStack.flatMap(
+            (desc) => desc.templateLiterals
+          );
+          let testTitle = "unknown test";
+          if (node.arguments[0] && node.arguments[0].type === "Literal") {
+            testTitle = String(node.arguments[0].value);
+          } else if (node.arguments[0] && node.arguments[0].type === "TemplateLiteral") {
+            testTitle = context.sourceCode.getText(node.arguments[0]);
           }
+          testCalls.push({
+            inheritedTags,
+            inheritedTemplateLiterals,
+            node,
+            ownTags: callTags,
+            ownTemplateLiterals: callTemplateLiterals,
+            title: testTitle
+          });
         }
-        if (!firstTagNode && optionsArg) {
-          firstTagNode = findTagPropertyNode(optionsArg);
+      },
+      "CallExpression:exit"(node) {
+        const call = parseFnCall(context, node);
+        if (call && call.type === "describe") {
+          describeStack.pop();
         }
       },
       "Program:exit"() {
@@ -3668,41 +3711,73 @@ var require_test_tags_default = createRule({
           allTestTags.push(...textTags);
         }
         for (const pool of tagPools) {
-          const hasExemptionTag = pool.exclude && pool.exclude.some((exclusion) => {
-            if (typeof exclusion === "string") {
-              return allTestTags.some(
-                (tag) => tag === exclusion || tag.toLowerCase() === exclusion.toLowerCase()
-              );
-            }
-            return false;
-          });
-          if (hasExemptionTag) {
-            continue;
-          }
-          const found = allTestTags.some((tag) => matchesTagPool(tag, pool)) || allTemplateLiterals.some((templateLiteral) => {
-            const reconstructed = reconstructTemplateLiteral(templateLiteral);
-            return reconstructed && matchesTagPool(reconstructed, pool);
-          });
-          if (!found) {
-            context.report({
-              data: { tagType: pool.name },
-              messageId: "missingTag",
-              node: firstTagNode || firstTestNode || {
-                loc: {
-                  end: { column: 1, line: 1 },
-                  start: { column: 0, line: 1 }
-                }
-              },
-              suggest: [
-                {
-                  data: { tagType: pool.name },
-                  fix: () => {
-                    return null;
+          if (pool.granularReporting) {
+            for (const testCall of testCalls) {
+              const availableTags = [
+                ...testCall.inheritedTags,
+                ...testCall.ownTags
+              ];
+              const availableTemplateLiterals = [
+                ...testCall.inheritedTemplateLiterals,
+                ...testCall.ownTemplateLiterals
+              ];
+              const found = availableTags.some((tag) => matchesTagPool(tag, pool)) || availableTemplateLiterals.some((templateLiteral) => {
+                const reconstructed = reconstructTemplateLiteral(templateLiteral);
+                return reconstructed && matchesTagPool(reconstructed, pool);
+              });
+              if (!found) {
+                context.report({
+                  data: {
+                    tagType: pool.name,
+                    testTitle: testCall.title
                   },
-                  messageId: "suggestAddTag"
-                }
-              ]
+                  messageId: "missingTagInTest",
+                  node: testCall.node,
+                  suggest: [
+                    {
+                      data: { tagType: pool.name },
+                      fix: () => null,
+                      messageId: "suggestAddTag"
+                    }
+                  ]
+                });
+              }
+            }
+          } else {
+            const hasExemptionTag = pool.exclude && pool.exclude.some((exclusion) => {
+              if (typeof exclusion === "string") {
+                return allTestTags.some(
+                  (tag) => tag === exclusion || tag.toLowerCase() === exclusion.toLowerCase()
+                );
+              }
+              return false;
             });
+            if (hasExemptionTag) {
+              continue;
+            }
+            const found = allTestTags.some((tag) => matchesTagPool(tag, pool)) || allTemplateLiterals.some((templateLiteral) => {
+              const reconstructed = reconstructTemplateLiteral(templateLiteral);
+              return reconstructed && matchesTagPool(reconstructed, pool);
+            });
+            if (!found) {
+              context.report({
+                data: { tagType: pool.name },
+                messageId: "missingTag",
+                node: firstTagNode || firstTestNode || {
+                  loc: {
+                    end: { column: 1, line: 1 },
+                    start: { column: 0, line: 1 }
+                  }
+                },
+                suggest: [
+                  {
+                    data: { tagType: pool.name },
+                    fix: () => null,
+                    messageId: "suggestAddTag"
+                  }
+                ]
+              });
+            }
           }
         }
       }
@@ -3716,6 +3791,7 @@ var require_test_tags_default = createRule({
     hasSuggestions: true,
     messages: {
       missingTag: "Missing required tag type in file: {{tagType}}",
+      missingTagInTest: 'Test "{{testTitle}}" missing {{tagType}} tag (not inherited from parent describe)',
       suggestAddTag: "Add {{tagType}} tag to test.describe or test"
     },
     schema: [
@@ -3749,6 +3825,11 @@ var require_test_tags_default = createRule({
                     ]
                   },
                   type: "array"
+                },
+                granularReporting: {
+                  default: false,
+                  description: "Enable per-test validation with inheritance for this tag pool (vs file-level validation)",
+                  type: "boolean"
                 },
                 name: {
                   description: "Name of the tag pool (used in error messages)",
