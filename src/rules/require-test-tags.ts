@@ -231,6 +231,20 @@ export default createRule({
                 ...testCall.ownTemplateLiterals,
               ]
 
+              // Check if any excluded tag is present - skip validation if found
+              if (pool.exclude && pool.exclude.some((exclusion) => {
+                if (typeof exclusion === 'string') {
+                  return availableTags.some(
+                    (tag) =>
+                      tag === exclusion ||
+                      tag.toLowerCase() === exclusion.toLowerCase(),
+                  )
+                }
+                return false
+              })) {
+                continue // Skip validation for this test call
+              }
+
               // Check if any available tag matches this pool
               const found =
                 availableTags.some((tag) => matchesTagPool(tag, pool)) ||
@@ -260,21 +274,19 @@ export default createRule({
             }
           } else {
             // File-level validation: Check if tag pool requirement exists anywhere in file
-            const hasExemptionTag =
-              pool.exclude &&
-              pool.exclude.some((exclusion) => {
-                if (typeof exclusion === 'string') {
-                  return allTestTags.some(
-                    (tag) =>
-                      tag === exclusion ||
-                      tag.toLowerCase() === exclusion.toLowerCase(),
-                  )
-                }
-                return false
-              })
-
-            if (hasExemptionTag) {
-              continue
+            
+            // Check if any excluded tag is present - skip validation if found
+            if (pool.exclude && pool.exclude.some((exclusion) => {
+              if (typeof exclusion === 'string') {
+                return allTestTags.some(
+                  (tag) =>
+                    tag === exclusion ||
+                    tag.toLowerCase() === exclusion.toLowerCase(),
+                )
+              }
+              return false
+            })) {
+              continue // Skip validation for this pool
             }
 
             const found =

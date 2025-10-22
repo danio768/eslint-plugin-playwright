@@ -335,12 +335,8 @@ runTSRuleTester(
         })
       `,
         errors: [
-          // Only granular pools (Component and Environment) report per-test errors
-          // delete user inherits [@123, @team-frontend] but needs a Component tag (not excluded) and Environment tag
-          {
-            data: { tagType: 'Component', testTitle: 'delete user' },
-            messageId: 'missingTagInTest',
-          },
+          // Component validation should be skipped because @team-frontend is in exclude list
+          // Only Environment granular error should remain
           {
             data: { tagType: 'Environment', testTitle: 'delete user' },
             messageId: 'missingTagInTest',
@@ -365,12 +361,8 @@ runTSRuleTester(
             data: { tagType: 'Issue ID' },
             messageId: 'missingTag',
           },
-          // Component should report granular error since @team-frontend is excluded
-          {
-            data: { tagType: 'Component', testTitle: 'child test' },
-            messageId: 'missingTagInTest',
-          },
-          // Environment should report granular error
+          // Component validation should be skipped because @team-frontend is in exclude list
+          // Only Environment granular error should remain
           {
             data: { tagType: 'Environment', testTitle: 'child test' },
             messageId: 'missingTagInTest',
@@ -416,6 +408,281 @@ runTSRuleTester(
       `,
         filename: 'test.spec.ts',
         options: mixedGranularConfig,
+      },
+    ],
+  },
+)
+
+// Test cases for full granular reporting (all pools use per-test validation)
+const fullGranularConfig = [
+  {
+    sharedPaths: ['shared'],
+    tagPools: [
+      {
+        exclude: ['@noid'],
+        granularReporting: true,
+        name: 'Issue ID',
+        pattern: '^@\\d+$',
+      },
+      {
+        granularReporting: true,
+        name: 'Team',
+        pattern: '^@team-',
+      },
+      {
+        exclude: ['@team-frontend', '@api'],
+        granularReporting: true,
+        name: 'Component',
+        pattern: '^@[a-z0-9_-]+$',
+      },
+      {
+        granularReporting: true,
+        name: 'Environment',
+        pattern: '^@(frontend|backend|api)$',
+      },
+    ],
+  },
+]
+
+runTSRuleTester(
+  'require-test-tags (full granular reporting)',
+  requireTestTags,
+  {
+    invalid: [
+      // All pools use granular reporting - each test must have all required tags
+      {
+        code: `
+        test.describe('user management', { 
+          tag: ['@123', '@team-frontend'] 
+        }, () => {
+          test('create user', { 
+            tag: ['@user-service'] 
+          }, async ({ page }) => {})
+        })
+      `,
+        errors: [
+          // Issue ID inherited, Team inherited, Component excluded, but Environment missing
+          {
+            data: { tagType: 'Environment', testTitle: 'create user' },
+            messageId: 'missingTagInTest',
+          },
+        ],
+        filename: 'test.spec.ts',
+        options: fullGranularConfig,
+      },
+      // Test with no inheritance - must provide all tags
+      {
+        code: `
+        test('standalone test', { 
+          tag: ['@user-service'] 
+        }, async ({ page }) => {})
+      `,
+        errors: [
+          {
+            data: { tagType: 'Issue ID', testTitle: 'standalone test' },
+            messageId: 'missingTagInTest',
+          },
+          {
+            data: { tagType: 'Team', testTitle: 'standalone test' },
+            messageId: 'missingTagInTest',
+          },
+          {
+            data: { tagType: 'Environment', testTitle: 'standalone test' },
+            messageId: 'missingTagInTest',
+          },
+        ],
+        filename: 'test.spec.ts',
+        options: fullGranularConfig,
+      },
+    ],
+    valid: [
+      // All required tags properly distributed with exclusions working
+      {
+        code: `
+        test.describe('user management', { 
+          tag: ['@123', '@team-frontend'] // Component excluded due to @team-frontend
+        }, () => {
+          test('create user', { 
+            tag: ['@api'] // Environment provided
+          }, async ({ page }) => {})
+        })
+      `,
+        filename: 'test.spec.ts',
+        options: fullGranularConfig,
+      },
+      // Exemption tag skips validation only for Issue ID pool
+      {
+        code: `
+        test('exempt test', { 
+          tag: ['@noid', '@team-frontend', '@api'] // Issue ID excluded, other requirements satisfied
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: fullGranularConfig,
+      },
+    ],
+  },
+)
+
+// Test cases for regex pattern excludes
+const regexExcludeConfig = [
+  {
+    tagPools: [
+      {
+        exclude: [
+          { flags: 'i', source: '^@team-' }, // Case-insensitive team exclusion
+          { source: '^@\\d+$' }, // Numeric ID exclusion
+        ],
+        name: 'Component',
+        pattern: '^@[a-z0-9_-]+$',
+      },
+      {
+        name: 'Environment',
+        pattern: '^@(frontend|backend|api)$',
+      },
+    ],
+  },
+]
+
+runTSRuleTester(
+  'require-test-tags (regex excludes)',
+  requireTestTags,
+  {
+    invalid: [
+      // Should require Environment only (Component satisfied by @other-tag)
+      {
+        code: `
+        test('my test', { 
+          tag: ['@other-tag'] 
+        }, async ({ page }) => {})
+      `,
+        errors: [
+          { data: { tagType: 'Environment' }, messageId: 'missingTag' },
+        ],
+        filename: 'test.spec.ts',
+        options: regexExcludeConfig,
+      },
+    ],
+    valid: [
+      // Regex exclude should skip Component validation for team tags
+      {
+        code: `
+        test('my test', { 
+          tag: ['@team-frontend', '@api'] // Component excluded, Environment satisfied
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: regexExcludeConfig,
+      },
+      // Case-insensitive team exclusion
+      {
+        code: `
+        test('my test', { 
+          tag: ['@TEAM-BACKEND', '@api'] // Component excluded (case-insensitive), Environment satisfied
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: regexExcludeConfig,
+      },
+      // Numeric ID exclusion
+      {
+        code: `
+        test('my test', { 
+          tag: ['@123', '@api'] // Component excluded by numeric pattern, Environment satisfied
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: regexExcludeConfig,
+      },
+    ],
+  },
+)
+
+// Test cases for template literal excludes and complex scenarios
+const templateExcludeConfig = [
+  {
+    tagPools: [
+      {
+        exclude: ['@noid'],
+        name: 'Issue ID',
+        pattern: '^@(\\d+|\\$\\{[^}]*id[^}]*\\})$',
+      },
+      {
+        exclude: ['@component-skip'],
+        granularReporting: true,
+        name: 'Component',
+        pattern: '^@[a-z0-9_-]+$',
+      },
+    ],
+  },
+]
+
+runTSRuleTester(
+  'require-test-tags (template literal excludes)',
+  requireTestTags,
+  {
+    invalid: [
+      // Only Issue ID provided, no Component tag
+      {
+        code: `
+        test('my test', async ({ page }) => {})
+      `,
+        errors: [
+          {
+            data: { tagType: 'Issue ID' },
+            messageId: 'missingTag', // File-level validation
+          },
+          {
+            data: { tagType: 'Component', testTitle: 'my test' },
+            messageId: 'missingTagInTest', // Granular validation
+          },
+        ],
+        filename: 'test.spec.ts',
+        options: templateExcludeConfig,
+      },
+    ],
+    valid: [
+      // Template literal with proper id variable should work
+      {
+        code: `
+        const data = { issueId: '123' }
+        test('my test', { 
+          tag: [\`@\${data.issueId}\`, '@user-service'] // Template matches pattern, satisfies both pools
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: templateExcludeConfig,
+      },
+      // Exemption tag in template literal
+      {
+        code: `
+        test('my test', { 
+          tag: ['@noid'] // Issue ID excluded
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: templateExcludeConfig,
+      },
+      // Component exclusion with granular reporting
+      {
+        code: `
+        test('my test', { 
+          tag: ['@123', '@component-skip'] // Component excluded for this test
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: templateExcludeConfig,
+      },
+      // Template literal Issue ID
+      {
+        code: `
+        const data = { testId: '456' }
+        test('my test', { 
+          tag: [\`@\${data.testId}\`, '@user-service'] 
+        }, async ({ page }) => {})
+      `,
+        filename: 'test.spec.ts',
+        options: templateExcludeConfig,
       },
     ],
   },

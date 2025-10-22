@@ -3721,6 +3721,16 @@ var require_test_tags_default = createRule({
                 ...testCall.inheritedTemplateLiterals,
                 ...testCall.ownTemplateLiterals
               ];
+              if (pool.exclude && pool.exclude.some((exclusion) => {
+                if (typeof exclusion === "string") {
+                  return availableTags.some(
+                    (tag) => tag === exclusion || tag.toLowerCase() === exclusion.toLowerCase()
+                  );
+                }
+                return false;
+              })) {
+                continue;
+              }
               const found = availableTags.some((tag) => matchesTagPool(tag, pool)) || availableTemplateLiterals.some((templateLiteral) => {
                 const reconstructed = reconstructTemplateLiteral(templateLiteral);
                 return reconstructed && matchesTagPool(reconstructed, pool);
@@ -3744,15 +3754,14 @@ var require_test_tags_default = createRule({
               }
             }
           } else {
-            const hasExemptionTag = pool.exclude && pool.exclude.some((exclusion) => {
+            if (pool.exclude && pool.exclude.some((exclusion) => {
               if (typeof exclusion === "string") {
                 return allTestTags.some(
                   (tag) => tag === exclusion || tag.toLowerCase() === exclusion.toLowerCase()
                 );
               }
               return false;
-            });
-            if (hasExemptionTag) {
+            })) {
               continue;
             }
             const found = allTestTags.some((tag) => matchesTagPool(tag, pool)) || allTemplateLiterals.some((templateLiteral) => {
