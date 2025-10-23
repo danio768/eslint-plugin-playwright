@@ -60,7 +60,8 @@ export default createRule({
 
         // Store numeric tags with their nodes
         for (const tag of tags) {
-          if (/^@\d+$/.test(tag)) {
+          // Only process string tags, skip template literals for duplicate detection
+          if (typeof tag === 'string' && /^@\d+$/.test(tag)) {
             currentFileTags.push({ node: optionsArg, tag })
           }
         }
@@ -102,6 +103,8 @@ export default createRule({
             }
           }
 
+          // Collect all files that contain this duplicate tag
+          const duplicateFiles: string[] = []
           for (const otherFile of otherFiles) {
             const content = readFileContent(otherFile)
             if (!content) continue // Skip files we can't read
@@ -110,12 +113,27 @@ export default createRule({
 
             if (otherTags.includes(tag)) {
               const relativePath = path.relative(projectRoot, otherFile)
+              duplicateFiles.push(relativePath)
+            }
+          }
+
+          // Report all duplicate locations for this tag
+          if (duplicateFiles.length > 0) {
+            if (duplicateFiles.length === 1) {
+              // Single duplicate location
               context.report({
-                data: { location: ` in ${relativePath}`, tag },
+                data: { location: ` in ${duplicateFiles[0]}`, tag },
                 messageId: 'duplicateTag',
                 node,
               })
-              break
+            } else {
+              // Multiple duplicate locations
+              const locations = duplicateFiles.join(', ')
+              context.report({
+                data: { location: ` in ${locations}`, tag },
+                messageId: 'duplicateTag',
+                node,
+              })
             }
           }
         }

@@ -3,12 +3,15 @@ import { createRule } from '../utils/createRule.js'
 import { parseFnCall } from '../utils/parseFnCall.js'
 import {
   extractTagsFromProperty,
+  extractTagsFromText,
   findTagPropertyNode,
   matchesPattern,
+  reconstructTemplateLiteral,
 } from '../utils/tags.js'
 
 interface TagPool {
   exclude?: (string | { flags?: string; source: string })[]
+  granularReporting?: boolean
   name: string
   pattern: string | { flags?: string; source: string }
 }
@@ -85,91 +88,245 @@ export default createRule({
     }
 
     const allTestTags: string[] = []
+    const allTemplateLiterals: TSESTree.TemplateLiteral[] = []
     let firstTestNode: any = null
     let firstTagNode: any = null
     let hasAnyTest = false
 
+    // Track describe blocks and their tags for inheritance
+    const describeStack: Array<{
+      node: any
+      tags: string[]
+      templateLiterals: TSESTree.TemplateLiteral[]
+    }> = []
+
+    // Track individual test calls with their inherited context
+    const testCalls: Array<{
+      inheritedTags: string[]
+      inheritedTemplateLiterals: TSESTree.TemplateLiteral[]
+      node: any
+      ownTags: string[]
+      ownTemplateLiterals: TSESTree.TemplateLiteral[]
+      title: string
+    }> = []
+
     return {
       CallExpression(node) {
         const call = parseFnCall(context, node)
-        if (!call || call.type !== 'test') return
 
-        hasAnyTest = true
+        // Handle both test() and test.describe() calls
+        if (!call || (call.type !== 'test' && call.type !== 'describe')) return
 
-        // Store first test node for error reporting if we don't have one yet
-        if (!firstTestNode) {
-          firstTestNode = node
+        // Extract tags from this call's options
+        const callTags: string[] = []
+        const callTemplateLiterals: TSESTree.TemplateLiteral[] = []
+
+        if (node.arguments.length >= 2) {
+          const optionsArg = node.arguments[1]
+          if (optionsArg && optionsArg.type === 'ObjectExpression') {
+            const tags = extractTagsFromProperty(
+              optionsArg as TSESTree.ObjectExpression,
+            )
+
+            for (const tag of tags) {
+              if (typeof tag === 'string') {
+                callTags.push(tag)
+                allTestTags.push(tag)
+              } else if (tag.type === 'templateLiteral') {
+                callTemplateLiterals.push(tag.node)
+                allTemplateLiterals.push(tag.node)
+              }
+            }
+
+            // Store the first tag node for fallback error reporting
+            if (!firstTagNode) {
+              firstTagNode = findTagPropertyNode(optionsArg as any)
+            }
+          }
         }
 
-        // Check if there's an options object as the second argument
-        if (node.arguments.length < 2) return
-        const optionsArg = node.arguments[1]
-        if (!optionsArg || optionsArg.type !== 'ObjectExpression') return
+        if (call.type === 'describe') {
+          // Calculate inherited tags from parent describes
+          const inheritedTags = describeStack.flatMap((desc) => desc.tags)
+          const inheritedTemplateLiterals = describeStack.flatMap(
+            (desc) => desc.templateLiterals,
+          )
 
-        const tags = extractTagsFromProperty(
-          optionsArg as TSESTree.ObjectExpression,
-        )
+          // Push this describe onto the stack
+          describeStack.push({
+            node,
+            tags: [...inheritedTags, ...callTags],
+            templateLiterals: [
+              ...inheritedTemplateLiterals,
+              ...callTemplateLiterals,
+            ],
+          })
+        } else if (call.type === 'test') {
+          hasAnyTest = true
 
-        // Store all tags (even if empty)
-        allTestTags.push(...tags)
+          // Store first test node for fallback error reporting
+          if (!firstTestNode) {
+            firstTestNode = node
+          }
 
-        // Store the first tag node for better error reporting
-        if (!firstTagNode && optionsArg) {
-          firstTagNode = findTagPropertyNode(optionsArg as any)
+          // Calculate inherited tags from all parent describes
+          const inheritedTags = describeStack.flatMap((desc) => desc.tags)
+          const inheritedTemplateLiterals = describeStack.flatMap(
+            (desc) => desc.templateLiterals,
+          )
+
+          // Extract test title for error reporting
+          let testTitle = 'unknown test'
+          if (node.arguments[0] && node.arguments[0].type === 'Literal') {
+            testTitle = String(node.arguments[0].value)
+          } else if (
+            node.arguments[0] &&
+            node.arguments[0].type === 'TemplateLiteral'
+          ) {
+            testTitle = context.sourceCode.getText(node.arguments[0])
+          }
+
+          // Track this test call
+          testCalls.push({
+            inheritedTags,
+            inheritedTemplateLiterals,
+            node,
+            ownTags: callTags,
+            ownTemplateLiterals: callTemplateLiterals,
+            title: testTitle,
+          })
+        }
+      },
+
+      'CallExpression:exit'(node) {
+        const call = parseFnCall(context, node)
+        if (call && call.type === 'describe') {
+          // Pop the describe from the stack when exiting
+          describeStack.pop()
         }
       },
 
       'Program:exit'() {
         if (!hasAnyTest) return
 
-        // Validate each required tag pool
+        // If we didn't collect many tags via AST, try text-based extraction as fallback
+        if (allTestTags.length === 0) {
+          const text = context.sourceCode.getText()
+          const textTags = extractTagsFromText(text)
+          allTestTags.push(...textTags)
+        }
+
+        // Process each tag pool with its own validation mode
         for (const pool of tagPools) {
-          // Special handling for literal string exemption tags (like @noid)
-          // Only literal string exclusions make the pool optional, not regex exclusions
-          const hasExemptionTag =
-            pool.exclude &&
-            pool.exclude.some((exclusion) => {
-              if (typeof exclusion === 'string') {
-                return allTestTags.some(
-                  (tag) =>
-                    tag === exclusion ||
-                    tag.toLowerCase() === exclusion.toLowerCase(),
-                )
+          if (pool.granularReporting) {
+            // Granular reporting: Validate each test call individually with inheritance
+            for (const testCall of testCalls) {
+              // Combine inherited and own tags for this specific test
+              const availableTags = [
+                ...testCall.inheritedTags,
+                ...testCall.ownTags,
+              ]
+              const availableTemplateLiterals = [
+                ...testCall.inheritedTemplateLiterals,
+                ...testCall.ownTemplateLiterals,
+              ]
+
+              // Check if any excluded tag is present - skip validation if found
+              if (
+                pool.exclude &&
+                pool.exclude.some((exclusion) => {
+                  if (typeof exclusion === 'string') {
+                    return availableTags.some(
+                      (tag) =>
+                        tag === exclusion ||
+                        tag.toLowerCase() === exclusion.toLowerCase(),
+                    )
+                  }
+                  // Handle regex pattern objects
+                  return availableTags.some((tag) =>
+                    matchesPattern(tag, exclusion),
+                  )
+                })
+              ) {
+                continue // Skip validation for this test call
               }
-              return false // Regex exclusions don't make pools optional
-            })
 
-          if (hasExemptionTag) {
-            continue // Skip this requirement since exemption tag is present
-          }
+              // Check if any available tag matches this pool
+              const found =
+                availableTags.some((tag) => matchesTagPool(tag, pool)) ||
+                availableTemplateLiterals.some((templateLiteral) => {
+                  const reconstructed =
+                    reconstructTemplateLiteral(templateLiteral)
+                  return reconstructed && matchesTagPool(reconstructed, pool)
+                })
 
-          // Check if any tag matches this pool
-          const found = allTestTags.some((tag) => matchesTagPool(tag, pool))
-
-          if (!found) {
-            context.report({
-              data: { tagType: pool.name },
-              messageId: 'missingTag',
-              node: firstTagNode ||
-                firstTestNode || {
-                  loc: {
-                    end: { column: 1, line: 1 },
-                    start: { column: 0, line: 1 },
+              if (!found) {
+                context.report({
+                  data: {
+                    tagType: pool.name,
+                    testTitle: testCall.title,
                   },
-                },
-              suggest: [
-                {
-                  data: { tagType: pool.name },
-                  fix: () => {
-                    // Auto-fix for adding tags is complex as it requires determining
-                    // the correct location in the options object. For now, we provide
-                    // a suggestion message to guide manual fixing.
-                    return null
+                  messageId: 'missingTagInTest',
+                  node: testCall.node,
+                  suggest: [
+                    {
+                      data: { tagType: pool.name },
+                      fix: () => null,
+                      messageId: 'suggestAddTag',
+                    },
+                  ],
+                })
+              }
+            }
+          } else {
+            // File-level validation: Check if tag pool requirement exists anywhere in file
+
+            // Check if any excluded tag is present - skip validation if found
+            if (
+              pool.exclude &&
+              pool.exclude.some((exclusion) => {
+                if (typeof exclusion === 'string') {
+                  return allTestTags.some(
+                    (tag) =>
+                      tag === exclusion ||
+                      tag.toLowerCase() === exclusion.toLowerCase(),
+                  )
+                }
+                // Handle regex pattern objects
+                return allTestTags.some((tag) => matchesPattern(tag, exclusion))
+              })
+            ) {
+              continue // Skip validation for this pool
+            }
+
+            const found =
+              allTestTags.some((tag) => matchesTagPool(tag, pool)) ||
+              allTemplateLiterals.some((templateLiteral) => {
+                const reconstructed =
+                  reconstructTemplateLiteral(templateLiteral)
+                return reconstructed && matchesTagPool(reconstructed, pool)
+              })
+
+            if (!found) {
+              context.report({
+                data: { tagType: pool.name },
+                messageId: 'missingTag',
+                node: firstTagNode ||
+                  firstTestNode || {
+                    loc: {
+                      end: { column: 1, line: 1 },
+                      start: { column: 0, line: 1 },
+                    },
                   },
-                  messageId: 'suggestAddTag',
-                },
-              ],
-            })
+                suggest: [
+                  {
+                    data: { tagType: pool.name },
+                    fix: () => null,
+                    messageId: 'suggestAddTag',
+                  },
+                ],
+              })
+            }
           }
         }
       },
@@ -178,13 +335,16 @@ export default createRule({
 
   meta: {
     docs: {
-      description: 'Enforce required tags in Playwright test files',
+      description:
+        'Enforce required tags in Playwright test files (file-level validation)',
       recommended: true,
     },
     hasSuggestions: true,
     messages: {
-      missingTag: 'Missing required tag type: {{tagType}}',
-      suggestAddTag: 'Add {{tagType}} tag',
+      missingTag: 'Missing required tag type in file: {{tagType}}',
+      missingTagInTest:
+        'Test "{{testTitle}}" missing {{tagType}} tag (not inherited from parent describe)',
+      suggestAddTag: 'Add {{tagType}} tag to test.describe or test',
     },
     schema: [
       {
@@ -218,6 +378,12 @@ export default createRule({
                     ],
                   },
                   type: 'array',
+                },
+                granularReporting: {
+                  default: false,
+                  description:
+                    'Enable per-test validation with inheritance for this tag pool (vs file-level validation)',
+                  type: 'boolean',
                 },
                 name: {
                   description: 'Name of the tag pool (used in error messages)',

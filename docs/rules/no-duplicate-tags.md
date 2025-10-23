@@ -206,3 +206,18 @@ test('login test', { tag: '@123' }, async ({ page }) => {})
 // file2.spec.ts
 test('logout test', { tag: '@123' }, async ({ page }) => {}) // Error: Duplicate tag "@123" found in file1.spec.ts
 ```
+
+### Multiple Duplicate Locations
+
+When a tag appears in multiple files, all locations are reported:
+
+```ts
+// file1.spec.ts
+test('test A', { tag: '@999' }, async ({ page }) => {})
+
+// file2.spec.ts
+test('test B', { tag: '@999' }, async ({ page }) => {})
+
+// file3.spec.ts
+test('test C', { tag: '@999' }, async ({ page }) => {}) // Error: Duplicate tag "@999" found in file1.spec.ts, file2.spec.ts
+```

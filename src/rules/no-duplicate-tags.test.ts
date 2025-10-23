@@ -61,6 +61,26 @@ runTSRuleTester('no-duplicate-tags', rule, {
       filename: 'test.spec.ts',
       options: testOptions,
     },
+    // Multiple identical tags in same file (should report each duplicate once)
+    {
+      code: `
+        test('test 1', { tag: '@555' }, async ({ page }) => {})
+        test('test 2', { tag: '@555' }, async ({ page }) => {})
+        test('test 3', { tag: '@555' }, async ({ page }) => {})
+      `,
+      errors: [
+        {
+          data: { location: ' in this file', tag: '@555' },
+          messageId: 'duplicateTag',
+        },
+        {
+          data: { location: ' in this file', tag: '@555' },
+          messageId: 'duplicateTag',
+        },
+      ],
+      filename: 'multiple-duplicates.spec.ts',
+      options: testOptions,
+    },
   ],
   valid: [
     // No tags
@@ -125,6 +145,14 @@ runTSRuleTester('no-duplicate-tags', rule, {
         }, async ({ page }) => {})
       `,
       filename: 'test.spec.ts',
+      options: testOptions,
+    },
+    // Unique tags across different files
+    {
+      code: `
+        test('unique test', { tag: '@9999' }, async ({ page }) => {})
+      `,
+      filename: 'unique-test.spec.ts',
       options: testOptions,
     },
   ],
