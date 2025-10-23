@@ -130,11 +130,11 @@ Configure the rule to define multiple tag pools with their own requirements:
     "playwright/require-test-tags": [
       "error",
       {
-        "pools": [
+        "tagPools": [
           {
             "name": "ID",
             "pattern": "^@(\\d+|\\$\\{[^}]*testCaseId[^}]*\\})$",
-            "exemptions": ["@noid"],
+            "exclude": ["@noid"],
             "granularReporting": true
           },
           {
@@ -216,7 +216,7 @@ export default [
 ]
 ```
 
-#### Advanced Configuration
+#### Advanced Configuration with Complex Excludes
 
 ```js
 {
@@ -231,10 +231,11 @@ export default [
       name: 'Component',
       pattern: '^@[a-z0-9_-]+$',
       exclude: [
-        { source: '^@team-', flags: 'i' },
+        { source: '^@team-', flags: 'i' }, // Case-insensitive team tags
         '@noid',
-        { source: '^@(frontend|backend|api)$', flags: 'i' },
-        { source: '^@\\d+$', flags: 'i' }
+        { source: '^@(frontend|backend|api)$', flags: 'i' }, // Environment tags
+        { source: '^@\\d+$' }, // Numeric tags (case-sensitive)
+        { source: '^@\\$\\{[^}]*id[^}]*\\}$' } // Template literal IDs
       ],
       granularReporting: true // Each test must have component tag
     },
@@ -244,7 +245,33 @@ export default [
       // No granularReporting - file-level validation is sufficient
     }
   ],
-  sharedPaths: ['shared', 'common']
+  sharedPaths: ['shared', 'common', 'utils']
+}
+```
+
+#### Regex Pattern Excludes
+
+```js
+{
+  tagPools: [
+    {
+      name: 'Component',
+      pattern: '^@[a-z0-9_-]+$',
+      exclude: [
+        { source: '^@team-', flags: 'i' }, // Case-insensitive: matches @team-, @TEAM-, etc.
+        { source: '^@\\d+$' }, // Case-sensitive: matches @123, @456, etc.
+        { source: '^@issue-\\d+$', flags: 'i' } // Case-insensitive: matches @issue-123, @ISSUE-456
+      ]
+    },
+    {
+      name: 'Priority',
+      pattern: '^@(p0|p1|p2|p3)$',
+      exclude: [
+        { source: '^@exempt-.*', flags: 'i' }, // Any tag starting with @exempt-
+        '@no-priority' // Literal string exclusion
+      ]
+    }
+  ]
 }
 ```
 
@@ -254,10 +281,10 @@ export default [
 - **`pattern`** (string | object): Regex pattern to match tags
   - String: `"^@team-"`
   - Object: `{ source: "^@team-", flags: "i" }`
-- **`exclude`** (array, optional): Patterns or literals to exclude
+- **`exclude`** (array, optional): Patterns or literals to exclude validation
   - String literals: `["@noid"]` - Makes the requirement optional when present
-  - Regex patterns: `[{ source: "^@\\d+$", flags: "i" }]` - Excludes from
-    pattern matching
+  - Regex patterns: `[{ source: "^@\\d+$", flags: "i" }]` - Excludes tags matching pattern from validation
+  - Mixed types: `["@skip", { source: "^@temp-", flags: "i" }]` - Combines literal and pattern excludes
 - **`granularReporting`** (boolean, optional): Enable per-test validation
   - `false` (default): File-level validation - tags can be distributed across the file
   - `true`: Per-test validation - each individual test must have matching tags
@@ -301,10 +328,10 @@ Use `sharedPaths` to ignore validation in specific directories:
 }
 ```
 
-## Exemption Behavior
+## Exclude Functionality
 
-When a literal string exclusion tag is present (like `@noid`), the entire tag
-pool requirement becomes optional:
+### String Literal Excludes
+When a literal string exclude tag is present, the entire tag pool requirement becomes optional:
 
 ```ts
 // This test would normally require an Issue ID tag
@@ -316,6 +343,27 @@ test(
   },
   async ({ page }) => {},
 )
+```
+
+### Regex Pattern Excludes
+Exclude tags matching specific patterns from validation:
+
+```ts
+// With exclude: [{ source: '^@team-', flags: 'i' }]
+// These tests skip Component validation because they have team tags
+test('my test', { tag: ['@team-frontend', '@api'] }, async ({ page }) => {}) // ✅ Component skipped
+test('my test', { tag: ['@TEAM-BACKEND', '@api'] }, async ({ page }) => {}) // ✅ Component skipped (case-insensitive)
+test('my test', { tag: ['@other-tag', '@api'] }, async ({ page }) => {}) // ❌ Component required
+```
+
+### Exclude Inheritance
+In granular reporting mode, exclude tags are inherited from parent `test.describe` blocks:
+
+```ts
+// With granularReporting: true and exclude: ['@skip-component']
+test.describe('suite', { tag: ['@skip-component', '@team-frontend'] }, () => {
+  test('child test', async ({ page }) => {}) // ✅ Component requirement skipped (inherited)
+})
 ```
 
 ## Use Cases
@@ -351,7 +399,34 @@ test(
 }
 ```
 
-### Environment-Specific Testing
+### Complex Exclude Scenarios
+
+```js
+{
+  tagPools: [
+    {
+      name: 'Test Case ID',
+      pattern: '^@tc-\\d+$',
+      exclude: [
+        '@no-tc',
+        { source: '^@legacy-', flags: 'i' },
+        { source: '^@temp-\\w+$' }
+      ],
+      granularReporting: true
+    }
+  ]
+}
+```
+
+```ts
+// These tests skip Test Case ID validation:
+test('legacy test', { tag: ['@legacy-old'] }, async ({ page }) => {}) // ✅ Excluded by regex
+test('temp test', { tag: ['@temp-dev'] }, async ({ page }) => {}) // ✅ Excluded by regex  
+test('no id test', { tag: ['@no-tc'] }, async ({ page }) => {}) // ✅ Excluded by literal
+test('normal test', { tag: ['@other'] }, async ({ page }) => {}) // ❌ Requires @tc-123
+```
+
+### Environment-Specific Testing with Smart Excludes
 
 ```js
 {
@@ -359,11 +434,18 @@ test(
     {
       name: 'Environment',
       pattern: '^@env-(dev|staging|prod)$',
-      exclude: ['@env-local'],
+      exclude: [
+        '@env-local',
+        { source: '^@skip-env.*', flags: 'i' }
+      ],
     },
     {
       name: 'Browser',
       pattern: '^@(chrome|firefox|safari)$',
+      exclude: [
+        { source: '^@mobile-', flags: 'i' },
+        '@headless-only'
+      ]
     },
   ]
 }
@@ -394,11 +476,144 @@ test(
 }
 ```
 
+## Real-World Examples
+
+### Enterprise Configuration
+A comprehensive setup for large teams with multiple tag requirements:
+
+```js
+{
+  tagPools: [
+    {
+      name: 'Test Case ID',
+      pattern: '^@(tc-\\d+|\\$\\{[^}]*id[^}]*\\})$',
+      exclude: ['@no-testcase'],
+      granularReporting: true // Every test needs unique ID
+    },
+    {
+      name: 'Priority',
+      pattern: '^@(p0|p1|p2|p3)$',
+      exclude: [
+        { source: '^@exploratory', flags: 'i' },
+        '@manual-only'
+      ],
+      granularReporting: true // Every test needs priority
+    },
+    {
+      name: 'Team',
+      pattern: '^@team-(frontend|backend|qa|devops)$',
+      exclude: ['@cross-team']
+      // File-level validation - whole suite can share team
+    },
+    {
+      name: 'Feature Area',
+      pattern: '^@feature-[a-z0-9-]+$',
+      exclude: [
+        { source: '^@infrastructure', flags: 'i' },
+        { source: '^@team-', flags: 'i' }
+      ]
+      // File-level validation
+    },
+    {
+      name: 'Test Type',
+      pattern: '^@(unit|integration|e2e|api)$',
+      exclude: ['@mixed-type']
+    }
+  ],
+  sharedPaths: ['shared', 'utils', 'fixtures']
+}
+```
+
+### CI/CD Pipeline Integration
+Perfect for automated test execution and reporting:
+
+```ts
+// ✅ Comprehensive test with all required tags
+test(
+  'user registration flow',
+  {
+    tag: [
+      '@tc-1234', // Test Case ID (granular)
+      '@p1', // Priority (granular)
+      '@team-frontend', // Team (file-level)
+      '@feature-auth', // Feature Area (file-level)
+      '@e2e' // Test Type (file-level)
+    ],
+  },
+  async ({ page }) => {
+    // Test implementation
+  },
+)
+
+// ✅ Template literal support for dynamic IDs
+const testData = { caseId: '5678' }
+test(
+  'payment processing',
+  {
+    tag: [
+      `@tc-${testData.caseId}`, // Dynamic Test Case ID
+      '@p0', // Critical priority
+      '@feature-payment',
+      '@api'
+    ],
+  },
+  async ({ page }) => {
+    // Test implementation
+  },
+)
+
+// ✅ Excluded test that skips certain requirements
+test(
+  'exploratory security test',
+  {
+    tag: [
+      '@exploratory', // Skips priority requirement
+      '@no-testcase', // Skips test case ID requirement
+      '@team-qa',
+      '@feature-security',
+      '@manual-only'
+    ],
+  },
+  async ({ page }) => {
+    // Ad-hoc security testing
+  },
+)
+```
+
+### Migration-Friendly Configuration
+Gradual adoption with smart excludes:
+
+```js
+{
+  tagPools: [
+    {
+      name: 'Modern Test ID',
+      pattern: '^@test-\\d{4}$',
+      exclude: [
+        { source: '^@legacy-', flags: 'i' }, // Exclude legacy tests
+        { source: '^@old-\\d+$' }, // Exclude old numbering
+        '@migration-pending'
+      ],
+      granularReporting: true
+    },
+    {
+      name: 'Team Assignment',
+      pattern: '^@owner-(alpha|beta|gamma)$',
+      exclude: [
+        '@unassigned',
+        { source: '^@legacy-team-', flags: 'i' }
+      ]
+    }
+  ]
+}
+```
+
 ## When Not To Use
 
 - If you don't need structured tag validation
-- If your tests don't use tags
+- If your tests don't use tags  
 - If you prefer a more flexible, unstructured tagging approach
+- If you're just starting with Playwright and want to keep things simple initially
 
 ## Further Reading
 
