@@ -232,17 +232,22 @@ export default createRule({
               ]
 
               // Check if any excluded tag is present - skip validation if found
-              if (pool.exclude && pool.exclude.some((exclusion) => {
-                if (typeof exclusion === 'string') {
-                  return availableTags.some(
-                    (tag) =>
-                      tag === exclusion ||
-                      tag.toLowerCase() === exclusion.toLowerCase(),
+              if (
+                pool.exclude &&
+                pool.exclude.some((exclusion) => {
+                  if (typeof exclusion === 'string') {
+                    return availableTags.some(
+                      (tag) =>
+                        tag === exclusion ||
+                        tag.toLowerCase() === exclusion.toLowerCase(),
+                    )
+                  }
+                  // Handle regex pattern objects
+                  return availableTags.some((tag) =>
+                    matchesPattern(tag, exclusion),
                   )
-                }
-                // Handle regex pattern objects
-                return availableTags.some((tag) => matchesPattern(tag, exclusion))
-              })) {
+                })
+              ) {
                 continue // Skip validation for this test call
               }
 
@@ -275,19 +280,22 @@ export default createRule({
             }
           } else {
             // File-level validation: Check if tag pool requirement exists anywhere in file
-            
+
             // Check if any excluded tag is present - skip validation if found
-            if (pool.exclude && pool.exclude.some((exclusion) => {
-              if (typeof exclusion === 'string') {
-                return allTestTags.some(
-                  (tag) =>
-                    tag === exclusion ||
-                    tag.toLowerCase() === exclusion.toLowerCase(),
-                )
-              }
-              // Handle regex pattern objects
-              return allTestTags.some((tag) => matchesPattern(tag, exclusion))
-            })) {
+            if (
+              pool.exclude &&
+              pool.exclude.some((exclusion) => {
+                if (typeof exclusion === 'string') {
+                  return allTestTags.some(
+                    (tag) =>
+                      tag === exclusion ||
+                      tag.toLowerCase() === exclusion.toLowerCase(),
+                  )
+                }
+                // Handle regex pattern objects
+                return allTestTags.some((tag) => matchesPattern(tag, exclusion))
+              })
+            ) {
               continue // Skip validation for this pool
             }
 

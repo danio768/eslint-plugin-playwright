@@ -134,10 +134,24 @@ const granularConfigs = {
     {
       sharedPaths: ['shared'],
       tagPools: [
-        { exclude: ['@noid'], granularReporting: true, name: 'Issue ID', pattern: '^@\\d+$' },
+        {
+          exclude: ['@noid'],
+          granularReporting: true,
+          name: 'Issue ID',
+          pattern: '^@\\d+$',
+        },
         { granularReporting: true, name: 'Team', pattern: '^@team-' },
-        { exclude: ['@team-frontend', '@api'], granularReporting: true, name: 'Component', pattern: '^@[a-z0-9_-]+$' },
-        { granularReporting: true, name: 'Environment', pattern: '^@(frontend|backend|api)$' },
+        {
+          exclude: ['@team-frontend', '@api'],
+          granularReporting: true,
+          name: 'Component',
+          pattern: '^@[a-z0-9_-]+$',
+        },
+        {
+          granularReporting: true,
+          name: 'Environment',
+          pattern: '^@(frontend|backend|api)$',
+        },
       ],
     },
   ],
@@ -148,12 +162,24 @@ const granularConfigs = {
         { exclude: ['@noid'], name: 'Issue ID', pattern: '^@\\d+$' },
         { name: 'Team', pattern: '^@team-' },
         {
-          exclude: ['@team-frontend', '@team-backend', '@api', '@frontend', '@backend', '@noid', { source: '^@\\d+$' }],
+          exclude: [
+            '@team-frontend',
+            '@team-backend',
+            '@api',
+            '@frontend',
+            '@backend',
+            '@noid',
+            { source: '^@\\d+$' },
+          ],
           granularReporting: true,
           name: 'Component',
           pattern: '^@[a-z0-9_-]+$',
         },
-        { granularReporting: true, name: 'Environment', pattern: '^@(frontend|backend|api)$' },
+        {
+          granularReporting: true,
+          name: 'Environment',
+          pattern: '^@(frontend|backend|api)$',
+        },
       ],
     },
   ],
@@ -168,7 +194,12 @@ runTSRuleTester('require-test-tags (granular reporting)', requireTestTags, {
           test('delete user', async ({ page }) => {})
         })
       `,
-      errors: [{ data: { tagType: 'Environment', testTitle: 'delete user' }, messageId: 'missingTagInTest' }],
+      errors: [
+        {
+          data: { tagType: 'Environment', testTitle: 'delete user' },
+          messageId: 'missingTagInTest',
+        },
+      ],
       filename: 'test.spec.ts',
       options: granularConfigs.mixed,
     },
@@ -178,9 +209,18 @@ runTSRuleTester('require-test-tags (granular reporting)', requireTestTags, {
         test('standalone test', { tag: ['@user-service'] }, async ({ page }) => {})
       `,
       errors: [
-        { data: { tagType: 'Issue ID', testTitle: 'standalone test' }, messageId: 'missingTagInTest' },
-        { data: { tagType: 'Team', testTitle: 'standalone test' }, messageId: 'missingTagInTest' },
-        { data: { tagType: 'Environment', testTitle: 'standalone test' }, messageId: 'missingTagInTest' },
+        {
+          data: { tagType: 'Issue ID', testTitle: 'standalone test' },
+          messageId: 'missingTagInTest',
+        },
+        {
+          data: { tagType: 'Team', testTitle: 'standalone test' },
+          messageId: 'missingTagInTest',
+        },
+        {
+          data: { tagType: 'Environment', testTitle: 'standalone test' },
+          messageId: 'missingTagInTest',
+        },
       ],
       filename: 'test.spec.ts',
       options: granularConfigs.full,
@@ -217,19 +257,32 @@ const excludeConfigs = {
     {
       tagPools: [
         {
-          exclude: ['@skip-validation', { flags: 'i', source: '^@temp-' }, { source: '^@issue-\\d+$' }],
+          exclude: [
+            '@skip-validation',
+            { flags: 'i', source: '^@temp-' },
+            { source: '^@issue-\\d+$' },
+          ],
           granularReporting: true,
           name: 'Required Tag',
           pattern: '^@[a-z0-9_-]+$',
         },
-        { exclude: [{ flags: 'i', source: '^@exempt-.*' }, '@no-env'], name: 'Environment', pattern: '^@(prod|staging|dev)$' },
+        {
+          exclude: [{ flags: 'i', source: '^@exempt-.*' }, '@no-env'],
+          name: 'Environment',
+          pattern: '^@(prod|staging|dev)$',
+        },
       ],
     },
   ],
   inheritance: [
     {
       tagPools: [
-        { exclude: ['@skip-component', { source: '^@legacy-' }], granularReporting: true, name: 'Component', pattern: '^@[a-z0-9_-]+$' },
+        {
+          exclude: ['@skip-component', { source: '^@legacy-' }],
+          granularReporting: true,
+          name: 'Component',
+          pattern: '^@[a-z0-9_-]+$',
+        },
         { exclude: ['@skip-team'], name: 'Team', pattern: '^@team-' },
       ],
     },
@@ -252,8 +305,17 @@ const excludeConfigs = {
   templateLiteral: [
     {
       tagPools: [
-        { exclude: ['@noid'], name: 'Issue ID', pattern: '^@(\\d+|\\$\\{[^}]*id[^}]*\\})$' },
-        { exclude: ['@component-skip'], granularReporting: true, name: 'Component', pattern: '^@[a-z0-9_-]+$' },
+        {
+          exclude: ['@noid'],
+          name: 'Issue ID',
+          pattern: '^@(\\d+|\\$\\{[^}]*id[^}]*\\})$',
+        },
+        {
+          exclude: ['@component-skip'],
+          granularReporting: true,
+          name: 'Component',
+          pattern: '^@[a-z0-9_-]+$',
+        },
       ],
     },
   ],
@@ -287,7 +349,10 @@ runTSRuleTester('require-test-tags (exclude functionality)', requireTestTags, {
       code: `test('my test', async ({ page }) => {})`,
       errors: [
         { data: { tagType: 'Issue ID' }, messageId: 'missingTag' },
-        { data: { tagType: 'Component', testTitle: 'my test' }, messageId: 'missingTagInTest' },
+        {
+          data: { tagType: 'Component', testTitle: 'my test' },
+          messageId: 'missingTagInTest',
+        },
       ],
       filename: 'test.spec.ts',
       options: excludeConfigs.templateLiteral,

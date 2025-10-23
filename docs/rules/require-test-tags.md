@@ -10,18 +10,18 @@ This rule validates that each test file includes tags from all required tag
 pools. Tag pools are completely configurable, allowing you to define custom tag
 categories with their own patterns and exclusions.
 
-**Important**: By default, the rule checks for tag coverage across the entire file, not per
-individual test. Tags can be inherited from `test.describe` blocks or
-distributed across multiple `test` calls. However, you can enable **granular reporting**
-for specific tag pools to validate each test individually.
+**Important**: By default, the rule checks for tag coverage across the entire
+file, not per individual test. Tags can be inherited from `test.describe` blocks
+or distributed across multiple `test` calls. However, you can enable **granular
+reporting** for specific tag pools to validate each test individually.
 
 **Template Literal Support**: The rule supports both static string tags and
 template literals. Template literals with expressions are reconstructed
 preserving their syntax for pattern matching.
 
-**Granular Reporting**: Enable per-test validation for specific tag pools when you need
-stricter enforcement. This is particularly useful for tracking identifiers or metadata
-that should be present on every individual test.
+**Granular Reporting**: Enable per-test validation for specific tag pools when
+you need stricter enforcement. This is particularly useful for tracking
+identifiers or metadata that should be present on every individual test.
 
 ### Examples
 
@@ -78,7 +78,7 @@ test.describe(
     )
 
     test(
-      'delete user', 
+      'delete user',
       {
         tag: ['@456', '@api'], // This test has ID @456
       },
@@ -156,9 +156,9 @@ Configure the rule to define multiple tag pools with their own requirements:
 }
 ```
 
-**Granular Reporting**: Set `granularReporting: true` on a tag pool to validate each
-individual test instead of checking file-level coverage. This ensures every test has
-the required tags, not just the file as a whole.
+**Granular Reporting**: Set `granularReporting: true` on a tag pool to validate
+each individual test instead of checking file-level coverage. This ensures every
+test has the required tags, not just the file as a whole.
 
 **Pattern Notes**:
 
@@ -260,17 +260,17 @@ export default [
       exclude: [
         { source: '^@team-', flags: 'i' }, // Case-insensitive: matches @team-, @TEAM-, etc.
         { source: '^@\\d+$' }, // Case-sensitive: matches @123, @456, etc.
-        { source: '^@issue-\\d+$', flags: 'i' } // Case-insensitive: matches @issue-123, @ISSUE-456
-      ]
+        { source: '^@issue-\\d+$', flags: 'i' }, // Case-insensitive: matches @issue-123, @ISSUE-456
+      ],
     },
     {
       name: 'Priority',
       pattern: '^@(p0|p1|p2|p3)$',
       exclude: [
         { source: '^@exempt-.*', flags: 'i' }, // Any tag starting with @exempt-
-        '@no-priority' // Literal string exclusion
-      ]
-    }
+        '@no-priority', // Literal string exclusion
+      ],
+    },
   ]
 }
 ```
@@ -283,10 +283,13 @@ export default [
   - Object: `{ source: "^@team-", flags: "i" }`
 - **`exclude`** (array, optional): Patterns or literals to exclude validation
   - String literals: `["@noid"]` - Makes the requirement optional when present
-  - Regex patterns: `[{ source: "^@\\d+$", flags: "i" }]` - Excludes tags matching pattern from validation
-  - Mixed types: `["@skip", { source: "^@temp-", flags: "i" }]` - Combines literal and pattern excludes
+  - Regex patterns: `[{ source: "^@\\d+$", flags: "i" }]` - Excludes tags
+    matching pattern from validation
+  - Mixed types: `["@skip", { source: "^@temp-", flags: "i" }]` - Combines
+    literal and pattern excludes
 - **`granularReporting`** (boolean, optional): Enable per-test validation
-  - `false` (default): File-level validation - tags can be distributed across the file
+  - `false` (default): File-level validation - tags can be distributed across
+    the file
   - `true`: Per-test validation - each individual test must have matching tags
 
 **Note**: All defined tag pools are required. If you configure a tag pool, it
@@ -295,6 +298,7 @@ will be enforced for all tests.
 ## Granular Reporting vs File-Level Validation
 
 ### File-Level Validation (Default)
+
 ```ts
 // ✅ Valid - tags distributed across describe and test
 test.describe('suite', { tag: ['@team-frontend'] }, () => {
@@ -304,6 +308,7 @@ test.describe('suite', { tag: ['@team-frontend'] }, () => {
 ```
 
 ### Granular Reporting (Per-Test)
+
 ```ts
 // ❌ Invalid with granularReporting: true for ID pool
 test.describe('suite', { tag: ['@team-frontend'] }, () => {
@@ -331,7 +336,9 @@ Use `sharedPaths` to ignore validation in specific directories:
 ## Exclude Functionality
 
 ### String Literal Excludes
-When a literal string exclude tag is present, the entire tag pool requirement becomes optional:
+
+When a literal string exclude tag is present, the entire tag pool requirement
+becomes optional:
 
 ```ts
 // This test would normally require an Issue ID tag
@@ -346,6 +353,7 @@ test(
 ```
 
 ### Regex Pattern Excludes
+
 Exclude tags matching specific patterns from validation:
 
 ```ts
@@ -357,7 +365,9 @@ test('my test', { tag: ['@other-tag', '@api'] }, async ({ page }) => {}) // ❌ 
 ```
 
 ### Exclude Inheritance
-In granular reporting mode, exclude tags are inherited from parent `test.describe` blocks:
+
+In granular reporting mode, exclude tags are inherited from parent
+`test.describe` blocks:
 
 ```ts
 // With granularReporting: true and exclude: ['@skip-component']
@@ -410,10 +420,10 @@ test.describe('suite', { tag: ['@skip-component', '@team-frontend'] }, () => {
       exclude: [
         '@no-tc',
         { source: '^@legacy-', flags: 'i' },
-        { source: '^@temp-\\w+$' }
+        { source: '^@temp-\\w+$' },
       ],
-      granularReporting: true
-    }
+      granularReporting: true,
+    },
   ]
 }
 ```
@@ -421,7 +431,7 @@ test.describe('suite', { tag: ['@skip-component', '@team-frontend'] }, () => {
 ```ts
 // These tests skip Test Case ID validation:
 test('legacy test', { tag: ['@legacy-old'] }, async ({ page }) => {}) // ✅ Excluded by regex
-test('temp test', { tag: ['@temp-dev'] }, async ({ page }) => {}) // ✅ Excluded by regex  
+test('temp test', { tag: ['@temp-dev'] }, async ({ page }) => {}) // ✅ Excluded by regex
 test('no id test', { tag: ['@no-tc'] }, async ({ page }) => {}) // ✅ Excluded by literal
 test('normal test', { tag: ['@other'] }, async ({ page }) => {}) // ❌ Requires @tc-123
 ```
@@ -434,18 +444,12 @@ test('normal test', { tag: ['@other'] }, async ({ page }) => {}) // ❌ Requires
     {
       name: 'Environment',
       pattern: '^@env-(dev|staging|prod)$',
-      exclude: [
-        '@env-local',
-        { source: '^@skip-env.*', flags: 'i' }
-      ],
+      exclude: ['@env-local', { source: '^@skip-env.*', flags: 'i' }],
     },
     {
       name: 'Browser',
       pattern: '^@(chrome|firefox|safari)$',
-      exclude: [
-        { source: '^@mobile-', flags: 'i' },
-        '@headless-only'
-      ]
+      exclude: [{ source: '^@mobile-', flags: 'i' }, '@headless-only'],
     },
   ]
 }
@@ -460,18 +464,18 @@ test('normal test', { tag: ['@other'] }, async ({ page }) => {}) // ❌ Requires
       name: 'Test Case ID',
       pattern: '^@tc-\\d+$',
       granularReporting: true, // Every test needs unique ID
-      exclude: ['@no-tc']
+      exclude: ['@no-tc'],
     },
     {
       name: 'Priority',
       pattern: '^@(p0|p1|p2|p3)$',
-      granularReporting: true // Every test needs priority
+      granularReporting: true, // Every test needs priority
     },
     {
       name: 'Feature Area',
-      pattern: '^@feature-\\w+$'
+      pattern: '^@feature-\\w+$',
       // File-level is fine - whole suite can share feature area
-    }
+    },
   ]
 }
 ```
@@ -479,6 +483,7 @@ test('normal test', { tag: ['@other'] }, async ({ page }) => {}) // ❌ Requires
 ## Real-World Examples
 
 ### Enterprise Configuration
+
 A comprehensive setup for large teams with multiple tag requirements:
 
 ```js
@@ -525,6 +530,7 @@ A comprehensive setup for large teams with multiple tag requirements:
 ```
 
 ### CI/CD Pipeline Integration
+
 Perfect for automated test execution and reporting:
 
 ```ts
@@ -537,7 +543,7 @@ test(
       '@p1', // Priority (granular)
       '@team-frontend', // Team (file-level)
       '@feature-auth', // Feature Area (file-level)
-      '@e2e' // Test Type (file-level)
+      '@e2e', // Test Type (file-level)
     ],
   },
   async ({ page }) => {
@@ -554,7 +560,7 @@ test(
       `@tc-${testData.caseId}`, // Dynamic Test Case ID
       '@p0', // Critical priority
       '@feature-payment',
-      '@api'
+      '@api',
     ],
   },
   async ({ page }) => {
@@ -571,7 +577,7 @@ test(
       '@no-testcase', // Skips test case ID requirement
       '@team-qa',
       '@feature-security',
-      '@manual-only'
+      '@manual-only',
     ],
   },
   async ({ page }) => {
@@ -581,6 +587,7 @@ test(
 ```
 
 ### Migration-Friendly Configuration
+
 Gradual adoption with smart excludes:
 
 ```js
@@ -592,18 +599,15 @@ Gradual adoption with smart excludes:
       exclude: [
         { source: '^@legacy-', flags: 'i' }, // Exclude legacy tests
         { source: '^@old-\\d+$' }, // Exclude old numbering
-        '@migration-pending'
+        '@migration-pending',
       ],
-      granularReporting: true
+      granularReporting: true,
     },
     {
       name: 'Team Assignment',
       pattern: '^@owner-(alpha|beta|gamma)$',
-      exclude: [
-        '@unassigned',
-        { source: '^@legacy-team-', flags: 'i' }
-      ]
-    }
+      exclude: ['@unassigned', { source: '^@legacy-team-', flags: 'i' }],
+    },
   ]
 }
 ```
@@ -611,9 +615,10 @@ Gradual adoption with smart excludes:
 ## When Not To Use
 
 - If you don't need structured tag validation
-- If your tests don't use tags  
+- If your tests don't use tags
 - If you prefer a more flexible, unstructured tagging approach
-- If you're just starting with Playwright and want to keep things simple initially
+- If you're just starting with Playwright and want to keep things simple
+  initially
 
 ## Further Reading
 
